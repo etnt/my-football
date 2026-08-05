@@ -9,7 +9,7 @@ API-KEY.txt
 build/
 .flutter-plugins
 .flutter-plugins-dependencies
-pubspec.lock
+# Note: pubspec.lock is intentionally committed for apps (reproducible builds).
 
 # IDE
 .idea/
