@@ -3,7 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/api/football_api_client.dart';
 import '../core/storage/secure_key_store.dart';
-import '../models/rate_limit_info.dart';
 
 /// Provides the initialised [SharedPreferences]. Overridden in `main()`.
 final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
@@ -12,17 +11,6 @@ final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
 
 final secureKeyStoreProvider =
     Provider<SecureKeyStore>((ref) => SecureKeyStore());
-
-/// Latest rate-limit snapshot, updated by the API client on every response.
-final rateLimitProvider =
-    NotifierProvider<RateLimitNotifier, RateLimitInfo?>(RateLimitNotifier.new);
-
-class RateLimitNotifier extends Notifier<RateLimitInfo?> {
-  @override
-  RateLimitInfo? build() => null;
-
-  void update(RateLimitInfo info) => state = info;
-}
 
 /// The current API key (loaded from secure storage). `null` means "not set".
 final apiKeyProvider =
@@ -44,13 +32,10 @@ class ApiKeyNotifier extends AsyncNotifier<String?> {
   }
 }
 
-/// API client rebuilt whenever the key changes; forwards rate-limit updates.
+/// API client rebuilt whenever the key changes.
 final footballApiClientProvider = Provider<FootballApiClient>((ref) {
   final key = ref.watch(apiKeyProvider).valueOrNull;
-  final client = FootballApiClient(
-    apiKey: key,
-    onRateLimit: (info) => ref.read(rateLimitProvider.notifier).update(info),
-  );
+  final client = FootballApiClient(apiKey: key);
   ref.onDispose(client.close);
   return client;
 });

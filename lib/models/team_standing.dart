@@ -27,31 +27,35 @@ class TeamStanding {
   final String form;
 
   factory TeamStanding.fromJson(Map<String, dynamic> json) {
-    final team = (json['team'] as Map<String, dynamic>?) ?? const {};
-    final all = (json['all'] as Map<String, dynamic>?) ?? const {};
     return TeamStanding(
-      rank: _asInt(json['rank']),
-      teamId: _asInt(team['id']),
-      teamName: (team['name'] as String?) ?? '',
-      teamLogo: (team['logo'] as String?) ?? '',
-      points: _asInt(json['points']),
-      goalsDiff: _asInt(json['goalsDiff']),
-      played: _asInt(all['played']),
-      win: _asInt(all['win']),
-      draw: _asInt(all['draw']),
-      lose: _asInt(all['lose']),
-      form: (json['form'] as String?) ?? '',
+      rank: _asInt(json['intRank']),
+      teamId: _asInt(json['idTeam']),
+      teamName: (json['strTeam'] as String?) ?? '',
+      teamLogo: (json['strBadge'] as String?) ?? '',
+      points: _asInt(json['intPoints']),
+      goalsDiff: _asInt(json['intGoalDifference']),
+      played: _asInt(json['intPlayed']),
+      win: _asInt(json['intWin']),
+      draw: _asInt(json['intDraw']),
+      lose: _asInt(json['intLoss']),
+      form: (json['strForm'] as String?) ?? '',
     );
   }
 
-  /// Compact representation used for local caching.
+  /// Compact representation used for local caching. Uses the same keys as the
+  /// TheSportsDB `lookuptable` response so [fromJson] round-trips cleanly.
   Map<String, dynamic> toJson() => {
-        'rank': rank,
-        'team': {'id': teamId, 'name': teamName, 'logo': teamLogo},
-        'points': points,
-        'goalsDiff': goalsDiff,
-        'all': {'played': played, 'win': win, 'draw': draw, 'lose': lose},
-        'form': form,
+        'intRank': rank,
+        'idTeam': teamId,
+        'strTeam': teamName,
+        'strBadge': teamLogo,
+        'intPoints': points,
+        'intGoalDifference': goalsDiff,
+        'intPlayed': played,
+        'intWin': win,
+        'intDraw': draw,
+        'intLoss': lose,
+        'strForm': form,
       };
 
   static int _asInt(Object? value) {

@@ -4,18 +4,14 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_football/core/api/api_exception.dart';
 import 'package:my_football/core/api/football_api_client.dart';
-import 'package:my_football/models/rate_limit_info.dart';
 
-/// Minimal [HttpClientAdapter] that returns a canned body + headers, so we can
+/// Minimal [HttpClientAdapter] that returns a canned body + status, so we can
 /// exercise the client without any network access.
 class _FakeAdapter implements HttpClientAdapter {
-  _FakeAdapter({
-    required this.body,
-    this.extraHeaders = const {},
-  });
+  _FakeAdapter({required this.body, this.statusCode = 200});
 
   final String body;
-  final Map<String, List<String>> extraHeaders;
+  final int statusCode;
   RequestOptions? lastOptions;
 
   @override
@@ -30,67 +26,61 @@ class _FakeAdapter implements HttpClientAdapter {
     lastOptions = options;
     return ResponseBody.fromString(
       body,
-      200,
+      statusCode,
       headers: {
         Headers.contentTypeHeader: [Headers.jsonContentType],
-        ...extraHeaders,
       },
     );
   }
 }
 
-FootballApiClient _clientWith(
-  _FakeAdapter adapter, {
-  String? apiKey = 'test-key',
-  void Function(RateLimitInfo)? onRateLimit,
-}) {
+FootballApiClient _clientWith(_FakeAdapter adapter, {String? apiKey}) {
   final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
-    ..httpClientAdapter = adapter;
-  return FootballApiClient(apiKey: apiKey, onRateLimit: onRateLimit, dio: dio);
+    ..httpClientAdapter = adapter
+    ..options.validateStatus = (status) => status != null && status < 500;
+  return FootballApiClient(apiKey: apiKey, dio: dio);
 }
 
 void main() {
   group('FootballApiClient.getStandings', () {
     const standingsBody = '''
     {
-      "get": "standings",
-      "errors": [],
-      "results": 1,
-      "response": [
+      "table": [
         {
-          "league": {
-            "id": 39,
-            "name": "Premier League",
-            "standings": [
-              [
-                {
-                  "rank": 1,
-                  "team": {"id": 50, "name": "Manchester City", "logo": "c.png"},
-                  "points": 89,
-                  "goalsDiff": 61,
-                  "form": "WWDWW",
-                  "all": {"played": 38, "win": 28, "draw": 5, "lose": 5}
-                },
-                {
-                  "rank": 2,
-                  "team": {"id": 42, "name": "Arsenal", "logo": "a.png"},
-                  "points": 84,
-                  "goalsDiff": 45,
-                  "form": "WLWWW",
-                  "all": {"played": 38, "win": 26, "draw": 6, "lose": 6}
-                }
-              ]
-            ]
-          }
+          "intRank": "1",
+          "idTeam": "133613",
+          "strTeam": "Manchester City",
+          "strBadge": "c.png",
+          "intPoints": "89",
+          "intGoalDifference": "61",
+          "strForm": "WWDWW",
+          "intPlayed": "38",
+          "intWin": "28",
+          "intDraw": "5",
+          "intLoss": "5"
+        },
+        {
+          "intRank": "2",
+          "idTeam": "133604",
+          "strTeam": "Arsenal",
+          "strBadge": "a.png",
+          "intPoints": "84",
+          "intGoalDifference": "45",
+          "strForm": "WLWWW",
+          "intPlayed": "38",
+          "intWin": "26",
+          "intDraw": "6",
+          "intLoss": "6"
         }
       ]
     }
     ''';
 
-    test('extracts the first standings group', () async {
+    test('parses the league table', () async {
       final client = _clientWith(_FakeAdapter(body: standingsBody));
 
-      final table = await client.getStandings(leagueId: 39, season: 2023);
+      final table =
+          await client.getStandings(leagueId: 4328, season: '2023-2024');
 
       expect(table, hasLength(2));
       expect(table.first.teamName, 'Manchester City');
@@ -98,168 +88,114 @@ void main() {
       expect(table[1].teamName, 'Arsenal');
     });
 
-    test('sends the api key header and query params', () async {
+    test('uses the free key in the path and sends l/s query params', () async {
       final adapter = _FakeAdapter(body: standingsBody);
       final client = _clientWith(adapter);
 
-      await client.getStandings(leagueId: 39, season: 2023);
+      await client.getStandings(leagueId: 4328, season: '2023-2024');
 
-      expect(adapter.lastOptions?.headers['x-apisports-key'], 'test-key');
-      expect(adapter.lastOptions?.queryParameters['league'], 39);
-      expect(adapter.lastOptions?.queryParameters['season'], 2023);
+      expect(adapter.lastOptions?.path, '/123/lookuptable.php');
+      expect(adapter.lastOptions?.queryParameters['l'], 4328);
+      expect(adapter.lastOptions?.queryParameters['s'], '2023-2024');
     });
 
-    test('captures rate-limit headers on every response', () async {
-      RateLimitInfo? captured;
-      final adapter = _FakeAdapter(
-        body: standingsBody,
-        extraHeaders: {
-          'x-ratelimit-requests-remaining': ['87'],
-          'x-ratelimit-requests-limit': ['100'],
-          'X-RateLimit-Remaining': ['9'],
-          'X-RateLimit-Limit': ['10'],
-        },
-      );
-      final client = _clientWith(adapter, onRateLimit: (i) => captured = i);
+    test('uses a premium key in the path when provided', () async {
+      final adapter = _FakeAdapter(body: standingsBody);
+      final client = _clientWith(adapter, apiKey: 'premium123');
 
-      await client.getStandings(leagueId: 39, season: 2023);
+      await client.getStandings(leagueId: 4328, season: '2023-2024');
 
-      expect(captured, isNotNull);
-      expect(captured!.remainingToday, 87);
-      expect(captured!.dailyLimit, 100);
-      expect(captured!.remainingMinute, 9);
-      expect(captured!.minuteLimit, 10);
-      expect(captured!.dailyLabel, '87/100');
+      expect(adapter.lastOptions?.path, '/premium123/lookuptable.php');
     });
 
-    test('returns empty list when there is no standings data', () async {
-      final client = _clientWith(
-        _FakeAdapter(body: '{"errors": [], "response": []}'),
-      );
+    test('returns empty list when the table is null', () async {
+      final client = _clientWith(_FakeAdapter(body: '{"table": null}'));
 
-      final table = await client.getStandings(leagueId: 39, season: 2023);
+      final table =
+          await client.getStandings(leagueId: 4328, season: '2023-2024');
 
       expect(table, isEmpty);
     });
   });
 
-  group('FootballApiClient error handling', () {
-    test('throws isMissingKey ApiException when no key is set', () async {
-      final client = _clientWith(
-        _FakeAdapter(body: '{}'),
-        apiKey: null,
-      );
-
-      expect(
-        () => client.getStandings(leagueId: 39, season: 2023),
-        throwsA(
-          isA<ApiException>().having((e) => e.isMissingKey, 'isMissingKey', true),
-        ),
-      );
-    });
-
-    test('surfaces API "errors" map as an ApiException', () async {
-      final client = _clientWith(
-        _FakeAdapter(
-          body: '{"errors": {"token": "Missing application key."}, '
-              '"response": []}',
-        ),
-      );
-
-      expect(
-        () => client.getStandings(leagueId: 39, season: 2023),
-        throwsA(
-          isA<ApiException>().having(
-            (e) => e.message,
-            'message',
-            contains('Missing application key.'),
-          ),
-        ),
-      );
-    });
-  });
-
-  group('FootballApiClient.getStatus', () {
-    test('parses plan and quota', () async {
-      final client = _clientWith(
-        _FakeAdapter(
-          body: '''
-          {
-            "errors": [],
-            "response": {
-              "subscription": {"plan": "Free", "active": true},
-              "requests": {"current": 12, "limit_day": 100}
-            }
-          }
-          ''',
-        ),
-      );
-
-      final status = await client.getStatus();
-
-      expect(status.plan, 'Free');
-      expect(status.requestsToday, 12);
-      expect(status.remainingToday, 88);
-    });
-  });
-
-  group('FootballApiClient.getFixtures', () {
-    const fixturesBody = '''
+  group('FootballApiClient.getSeasonEvents', () {
+    const eventsBody = '''
     {
-      "errors": [],
-      "response": [
+      "events": [
         {
-          "fixture": {
-            "id": 100,
-            "date": "2023-08-11T19:00:00+00:00",
-            "status": {"short": "FT", "long": "Match Finished", "elapsed": 90}
-          },
-          "teams": {
-            "home": {"id": 40, "name": "Liverpool", "logo": "l.png"},
-            "away": {"id": 34, "name": "Newcastle", "logo": "n.png"}
-          },
-          "goals": {"home": 2, "away": 1}
+          "idEvent": "100",
+          "strTimestamp": "2023-08-11T19:00:00",
+          "strStatus": "FT",
+          "idHomeTeam": "40",
+          "strHomeTeam": "Liverpool",
+          "strHomeTeamBadge": "l.png",
+          "idAwayTeam": "34",
+          "strAwayTeam": "Newcastle",
+          "strAwayTeamBadge": "n.png",
+          "intHomeScore": "2",
+          "intAwayScore": "1"
         },
         {
-          "fixture": {
-            "id": 101,
-            "date": "2023-08-19T14:00:00+00:00",
-            "status": {"short": "NS", "long": "Not Started", "elapsed": null}
-          },
-          "teams": {
-            "home": {"id": 42, "name": "Arsenal", "logo": "a.png"},
-            "away": {"id": 47, "name": "Tottenham", "logo": "t.png"}
-          },
-          "goals": {"home": null, "away": null}
+          "idEvent": "101",
+          "strTimestamp": "2023-08-19T14:00:00",
+          "strStatus": "NS",
+          "idHomeTeam": "42",
+          "strHomeTeam": "Arsenal",
+          "idAwayTeam": "47",
+          "strAwayTeam": "Tottenham",
+          "intHomeScore": null,
+          "intAwayScore": null
         }
       ]
     }
     ''';
 
-    test('parses matches with and without scores', () async {
-      final client = _clientWith(_FakeAdapter(body: fixturesBody));
-
-      final matches = await client.getFixtures(leagueId: 39, season: 2023);
-
-      expect(matches, hasLength(2));
-      expect(matches.first.homeName, 'Liverpool');
-      expect(matches.first.isFinished, isTrue);
-      expect(matches.first.hasScore, isTrue);
-      expect(matches.first.homeGoals, 2);
-
-      expect(matches[1].isFinished, isFalse);
-      expect(matches[1].hasScore, isFalse);
-      expect(matches[1].homeGoals, isNull);
-    });
-
-    test('passes last/next query params', () async {
-      final adapter = _FakeAdapter(body: fixturesBody);
+    test('parses events with and without scores', () async {
+      final adapter = _FakeAdapter(body: eventsBody);
       final client = _clientWith(adapter);
 
-      await client.getFixtures(leagueId: 39, season: 2023, last: 20);
+      final events =
+          await client.getSeasonEvents(leagueId: 4328, season: '2023-2024');
 
-      expect(adapter.lastOptions?.queryParameters['last'], 20);
-      expect(adapter.lastOptions?.queryParameters.containsKey('next'), isFalse);
+      expect(events, hasLength(2));
+      expect(events.first.homeName, 'Liverpool');
+      expect(events.first.isFinished, isTrue);
+      expect(events.first.hasScore, isTrue);
+      expect(events.first.homeGoals, 2);
+
+      expect(events[1].isFinished, isFalse);
+      expect(events[1].hasScore, isFalse);
+      expect(events[1].homeGoals, isNull);
+
+      expect(adapter.lastOptions?.path, '/123/eventsseason.php');
+      expect(adapter.lastOptions?.queryParameters['id'], 4328);
+      expect(adapter.lastOptions?.queryParameters['s'], '2023-2024');
+    });
+
+    test('returns empty list when events is missing', () async {
+      final client = _clientWith(_FakeAdapter(body: '{}'));
+
+      final events =
+          await client.getSeasonEvents(leagueId: 4328, season: '2023-2024');
+
+      expect(events, isEmpty);
+    });
+  });
+
+  group('FootballApiClient error handling', () {
+    test('throws a rate-limit ApiException on HTTP 429', () async {
+      final client = _clientWith(_FakeAdapter(body: '{}', statusCode: 429));
+
+      expect(
+        () => client.getStandings(leagueId: 4328, season: '2023-2024'),
+        throwsA(
+          isA<ApiException>().having(
+            (e) => e.message,
+            'message',
+            contains('Rate limit'),
+          ),
+        ),
+      );
     });
   });
 }

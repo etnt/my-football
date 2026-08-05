@@ -6,8 +6,12 @@ import '../../models/league.dart';
 /// Whether we're showing recent results or upcoming matches.
 enum FixturesMode { results, upcoming }
 
-/// Fetches fixtures with a short TTL cache (matches change more often than a
-/// full-season table). Falls back to any cached copy on failure.
+/// Fetches league fixtures with a short TTL cache. On TheSportsDB we fetch the
+/// season's events once (shared cache key) and split them into recent results
+/// and upcoming matches. Falls back to any cached copy on failure.
+///
+/// Note: on the free key `eventsseason` only returns the first ~15 events of a
+/// season, so both lists are limited.
 class FixturesRepository {
   FixturesRepository({required this.client, required this.cache});
 
@@ -17,8 +21,8 @@ class FixturesRepository {
   final FootballApiClient client;
   final CacheStore cache;
 
-  String _cacheKey(int leagueId, int season, FixturesMode mode) =>
-      'fixtures_${leagueId}_${season}_${mode.name}';
+  /// Shared cache key so results/upcoming/team views reuse one network call.
+  String _cacheKey(int leagueId, int season) => 'season_events_${leagueId}_$season';
 
   Future<List<Fixture>> getFixtures({
     required League league,
@@ -26,27 +30,38 @@ class FixturesRepository {
     required FixturesMode mode,
     bool forceRefresh = false,
   }) async {
-    final key = _cacheKey(league.id, season, mode);
+    final events = await _seasonEvents(
+      league: league,
+      season: season,
+      forceRefresh: forceRefresh,
+    );
+    return _split(events, mode);
+  }
+
+  Future<List<Fixture>> _seasonEvents({
+    required League league,
+    required int season,
+    bool forceRefresh = false,
+  }) async {
+    final key = _cacheKey(league.id, season);
 
     if (!forceRefresh) {
       final cached = cache.readJson(key);
       if (cached != null && cached.isFresh(_ttl)) {
-        return _sort(_decode(cached.data), mode);
+        return _decode(cached.data);
       }
     }
 
     try {
-      final fresh = await client.getFixtures(
+      final fresh = await client.getSeasonEvents(
         leagueId: league.id,
-        season: season,
-        last: mode == FixturesMode.results ? _count : null,
-        next: mode == FixturesMode.upcoming ? _count : null,
+        season: apiSeason(season),
       );
       await cache.writeJson(key, fresh.map((e) => e.toJson()).toList());
-      return _sort(fresh, mode);
+      return fresh;
     } catch (_) {
       final cached = cache.readJson(key);
-      if (cached != null) return _sort(_decode(cached.data), mode);
+      if (cached != null) return _decode(cached.data);
       rethrow;
     }
   }
@@ -58,13 +73,14 @@ class FixturesRepository {
         .toList();
   }
 
-  List<Fixture> _sort(List<Fixture> fixtures, FixturesMode mode) {
-    final sorted = [...fixtures];
-    sorted.sort((a, b) => a.dateUtc.compareTo(b.dateUtc));
-    // Most recent result first; soonest upcoming first.
+  List<Fixture> _split(List<Fixture> events, FixturesMode mode) {
     if (mode == FixturesMode.results) {
-      return sorted.reversed.toList();
+      final results = events.where((e) => e.isFinished).toList()
+        ..sort((a, b) => b.dateUtc.compareTo(a.dateUtc));
+      return results.take(_count).toList();
     }
-    return sorted;
+    final upcoming = events.where((e) => !e.isFinished).toList()
+      ..sort((a, b) => a.dateUtc.compareTo(b.dateUtc));
+    return upcoming.take(_count).toList();
   }
 }

@@ -13,11 +13,16 @@ final teamRepositoryProvider = Provider<TeamRepository>((ref) {
   );
 });
 
+/// Identifies a team within its league for the fixtures lookup.
+typedef TeamRef = ({int teamId, int leagueId});
+
 /// All fixtures for a given team in the currently selected season.
 final teamFixturesProvider =
-    FutureProvider.autoDispose.family<List<Fixture>, int>((ref, teamId) {
+    FutureProvider.autoDispose.family<List<Fixture>, TeamRef>((ref, ref2) {
   final season = ref.watch(seasonProvider);
-  return ref
-      .watch(teamRepositoryProvider)
-      .getSeasonFixtures(teamId: teamId, season: season);
+  return ref.watch(teamRepositoryProvider).getSeasonFixtures(
+        teamId: ref2.teamId,
+        leagueId: ref2.leagueId,
+        season: season,
+      );
 });

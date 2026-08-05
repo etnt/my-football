@@ -29,6 +29,7 @@ class StandingsView extends ConsumerWidget {
                   MaterialPageRoute(
                     builder: (_) => TeamDetailScreen(
                       teamId: team.teamId,
+                      leagueId: ref.read(selectedLeagueProvider).id,
                       teamName: team.teamName,
                       teamLogo: team.teamLogo,
                     ),

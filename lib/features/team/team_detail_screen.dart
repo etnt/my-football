@@ -11,22 +11,25 @@ class TeamDetailScreen extends ConsumerWidget {
   const TeamDetailScreen({
     super.key,
     required this.teamId,
+    required this.leagueId,
     required this.teamName,
     required this.teamLogo,
   });
 
   final int teamId;
+  final int leagueId;
   final String teamName;
   final String teamLogo;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final fixtures = ref.watch(teamFixturesProvider(teamId));
+    final teamRef = (teamId: teamId, leagueId: leagueId);
+    final fixtures = ref.watch(teamFixturesProvider(teamRef));
 
     return Scaffold(
       appBar: AppBar(title: Text(teamName)),
       body: RefreshIndicator(
-        onRefresh: () => ref.refresh(teamFixturesProvider(teamId).future),
+        onRefresh: () => ref.refresh(teamFixturesProvider(teamRef).future),
         child: fixtures.when(
           data: (all) => _TeamBody(
             teamId: teamId,

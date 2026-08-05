@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api/api_exception.dart';
-import '../../models/account_status.dart';
 import '../../providers/app_providers.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -15,9 +13,6 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _controller = TextEditingController();
   bool _obscure = true;
-  bool _checking = false;
-  AccountStatus? _status;
-  String? _statusError;
   bool _prefilled = false;
 
   @override
@@ -32,7 +27,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     await ref.read(apiKeyProvider.notifier).setKey(key);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('API key saved.')),
+        const SnackBar(content: Text('Premium key saved.')),
       );
     }
   }
@@ -40,27 +35,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _clear() async {
     await ref.read(apiKeyProvider.notifier).clear();
     _controller.clear();
-    setState(() {
-      _status = null;
-      _statusError = null;
-    });
-  }
-
-  Future<void> _checkStatus() async {
-    setState(() {
-      _checking = true;
-      _status = null;
-      _statusError = null;
-    });
-    try {
-      final status = await ref.read(footballApiClientProvider).getStatus();
-      setState(() => _status = status);
-    } on ApiException catch (e) {
-      setState(() => _statusError = e.message);
-    } catch (e) {
-      setState(() => _statusError = 'Something went wrong: $e');
-    } finally {
-      if (mounted) setState(() => _checking = false);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Reverted to the free key.')),
+      );
     }
   }
 
@@ -80,12 +58,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('API-Football key',
+          Text('TheSportsDB Premium key',
               style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           const Text(
-            'Get a free key at api-football.com. It is stored securely on this '
-            'device only.',
+            "By default the app uses TheSportsDB's free test key, which fully "
+            'supports league tables but limits fixtures to the first few '
+            'matches of a season.\n\n'
+            'Optionally add a Premium key (from thesportsdb.com) to unlock full '
+            'schedules. It is stored securely on this device only.',
           ),
           const SizedBox(height: 12),
           TextField(
@@ -94,7 +75,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             autocorrect: false,
             enableSuggestions: false,
             decoration: InputDecoration(
-              labelText: 'API key',
+              labelText: 'Premium API key (optional)',
               border: const OutlineInputBorder(),
               suffixIcon: IconButton(
                 icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
@@ -116,74 +97,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               OutlinedButton.icon(
                 onPressed: hasKey ? _clear : null,
                 icon: const Icon(Icons.delete_outline),
-                label: const Text('Clear'),
+                label: const Text('Use free key'),
               ),
             ],
           ),
-          const Divider(height: 32),
-          Text('Account status',
-              style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          const Text(
-            'Checks your plan and how many of today\'s requests are left. '
-            'This uses one API request.',
-          ),
-          const SizedBox(height: 12),
-          FilledButton.tonalIcon(
-            onPressed: _checking || !hasKey ? null : _checkStatus,
-            icon: _checking
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.refresh),
-            label: const Text('Check account status'),
-          ),
-          const SizedBox(height: 16),
-          if (_statusError != null)
-            Text(
-              _statusError!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-          if (_status != null) _StatusCard(status: _status!),
         ],
       ),
     );
   }
-}
-
-class _StatusCard extends StatelessWidget {
-  const _StatusCard({required this.status});
-
-  final AccountStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _row('Plan', status.plan),
-            _row('Active', status.active ? 'Yes' : 'No'),
-            _row('Used today', '${status.requestsToday}/${status.dailyLimit}'),
-            _row('Remaining today', '${status.remainingToday}'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _row(String label, String value) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label),
-            Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
-          ],
-        ),
-      );
 }

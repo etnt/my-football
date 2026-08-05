@@ -17,9 +17,9 @@ final standingsRepositoryProvider = Provider<StandingsRepository>((ref) {
 final selectedLeagueProvider =
     StateProvider<League>((ref) => League.premierLeague);
 
-/// Selected season (starting year). Kept configurable because the Free plan
-/// only covers certain seasons — pick one your account allows.
-final seasonProvider = StateProvider<int>((ref) => 2023);
+/// Selected season (starting year). `2025` (2025-2026) is a good default with a
+/// complete table; the in-progress current season may be sparse.
+final seasonProvider = StateProvider<int>((ref) => 2025);
 
 /// The standings for the selected league/season.
 final standingsProvider = AsyncNotifierProvider.autoDispose<StandingsNotifier,

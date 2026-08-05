@@ -1,4 +1,4 @@
-/// A single match (fixture) from the API-Football `/fixtures` endpoint.
+/// A single match (event) from TheSportsDB `events`/`eventsseason` endpoints.
 class Fixture {
   const Fixture({
     required this.id,
@@ -14,6 +14,7 @@ class Fixture {
     required this.awayLogo,
     required this.homeGoals,
     required this.awayGoals,
+    this.postponed = false,
   });
 
   final int id;
@@ -29,13 +30,17 @@ class Fixture {
   final String awayLogo;
   final int? homeGoals;
   final int? awayGoals;
+  final bool postponed;
 
-  static const _finished = {'FT', 'AET', 'PEN'};
+  static const _finished = {'FT', 'AET', 'PEN', 'Match Finished'};
   static const _live = {'1H', '2H', 'HT', 'ET', 'BT', 'P', 'INT', 'LIVE'};
 
-  bool get isFinished => _finished.contains(statusShort);
   bool get isLive => _live.contains(statusShort);
   bool get hasScore => homeGoals != null && awayGoals != null;
+  bool get isFinished =>
+      !postponed &&
+      !isLive &&
+      (_finished.contains(statusShort) || hasScore);
 
   bool isHome(int teamId) => homeId == teamId;
 
@@ -51,44 +56,62 @@ class Fixture {
   }
 
   factory Fixture.fromJson(Map<String, dynamic> json) {
-    final fixture = (json['fixture'] as Map<String, dynamic>?) ?? const {};
-    final status = (fixture['status'] as Map<String, dynamic>?) ?? const {};
-    final teams = (json['teams'] as Map<String, dynamic>?) ?? const {};
-    final home = (teams['home'] as Map<String, dynamic>?) ?? const {};
-    final away = (teams['away'] as Map<String, dynamic>?) ?? const {};
-    final goals = (json['goals'] as Map<String, dynamic>?) ?? const {};
-
+    final status = (json['strStatus'] as String?)?.trim();
     return Fixture(
-      id: _asInt(fixture['id']),
-      dateUtc: DateTime.tryParse((fixture['date'] as String?) ?? '')?.toUtc() ??
-          DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
-      statusShort: (status['short'] as String?) ?? 'NS',
-      statusLong: (status['long'] as String?) ?? '',
-      elapsed: _asIntOrNull(status['elapsed']),
-      homeId: _asInt(home['id']),
-      homeName: (home['name'] as String?) ?? '',
-      homeLogo: (home['logo'] as String?) ?? '',
-      awayId: _asInt(away['id']),
-      awayName: (away['name'] as String?) ?? '',
-      awayLogo: (away['logo'] as String?) ?? '',
-      homeGoals: _asIntOrNull(goals['home']),
-      awayGoals: _asIntOrNull(goals['away']),
+      id: _asInt(json['idEvent']),
+      dateUtc: _parseDate(json),
+      statusShort: (status == null || status.isEmpty) ? 'NS' : status,
+      statusLong: '',
+      elapsed: null,
+      postponed:
+          ((json['strPostponed'] as String?) ?? 'no').toLowerCase() == 'yes',
+      homeId: _asInt(json['idHomeTeam']),
+      homeName: (json['strHomeTeam'] as String?) ?? '',
+      homeLogo: (json['strHomeTeamBadge'] as String?) ?? '',
+      awayId: _asInt(json['idAwayTeam']),
+      awayName: (json['strAwayTeam'] as String?) ?? '',
+      awayLogo: (json['strAwayTeamBadge'] as String?) ?? '',
+      homeGoals: _asIntOrNull(json['intHomeScore']),
+      awayGoals: _asIntOrNull(json['intAwayScore']),
     );
   }
 
-  /// Compact representation used for local caching.
+  /// Compact representation used for local caching. Uses TheSportsDB event keys
+  /// so [fromJson] round-trips cleanly.
   Map<String, dynamic> toJson() => {
-        'fixture': {
-          'id': id,
-          'date': dateUtc.toIso8601String(),
-          'status': {'short': statusShort, 'long': statusLong, 'elapsed': elapsed},
-        },
-        'teams': {
-          'home': {'id': homeId, 'name': homeName, 'logo': homeLogo},
-          'away': {'id': awayId, 'name': awayName, 'logo': awayLogo},
-        },
-        'goals': {'home': homeGoals, 'away': awayGoals},
+        'idEvent': id,
+        'strTimestamp': dateUtc.toIso8601String(),
+        'strStatus': statusShort,
+        'strPostponed': postponed ? 'yes' : 'no',
+        'idHomeTeam': homeId,
+        'strHomeTeam': homeName,
+        'strHomeTeamBadge': homeLogo,
+        'idAwayTeam': awayId,
+        'strAwayTeam': awayName,
+        'strAwayTeamBadge': awayLogo,
+        'intHomeScore': homeGoals,
+        'intAwayScore': awayGoals,
       };
+
+  /// TheSportsDB timestamps are UTC but carry no timezone suffix. Prefer
+  /// `strTimestamp`, falling back to `dateEvent` + `strTime`.
+  static DateTime _parseDate(Map<String, dynamic> json) {
+    final epoch = DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+    final ts = (json['strTimestamp'] as String?)?.trim();
+    if (ts != null && ts.isNotEmpty) {
+      final normalized = ts.endsWith('Z') ? ts : '${ts}Z';
+      final parsed = DateTime.tryParse(normalized);
+      if (parsed != null) return parsed.toUtc();
+    }
+    final date = (json['dateEvent'] as String?)?.trim();
+    if (date != null && date.isNotEmpty) {
+      final time = (json['strTime'] as String?)?.trim();
+      final t = (time == null || time.isEmpty) ? '00:00:00' : time;
+      final parsed = DateTime.tryParse('${date}T${t}Z');
+      if (parsed != null) return parsed.toUtc();
+    }
+    return epoch;
+  }
 
   static int _asInt(Object? value) => _asIntOrNull(value) ?? 0;
 

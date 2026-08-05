@@ -1,29 +1,29 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:my_football/models/account_status.dart';
 import 'package:my_football/models/team_standing.dart';
 
 void main() {
   group('TeamStanding.fromJson', () {
     final json = {
-      'rank': 1,
-      'team': {'id': 50, 'name': 'Manchester City', 'logo': 'city.png'},
-      'points': 89,
-      'goalsDiff': 61,
-      'form': 'WWDWW',
-      'all': {
-        'played': 38,
-        'win': 28,
-        'draw': 5,
-        'lose': 5,
-        'goals': {'for': 94, 'against': 33},
-      },
+      'intRank': '1',
+      'idTeam': '133613',
+      'strTeam': 'Manchester City',
+      'strBadge': 'city.png',
+      'intPoints': '89',
+      'intGoalDifference': '61',
+      'strForm': 'WWDWW',
+      'intPlayed': '38',
+      'intWin': '28',
+      'intDraw': '5',
+      'intLoss': '5',
+      'intGoalsFor': '94',
+      'intGoalsAgainst': '33',
     };
 
     test('maps all fields', () {
       final standing = TeamStanding.fromJson(json);
 
       expect(standing.rank, 1);
-      expect(standing.teamId, 50);
+      expect(standing.teamId, 133613);
       expect(standing.teamName, 'Manchester City');
       expect(standing.teamLogo, 'city.png');
       expect(standing.points, 89);
@@ -36,7 +36,7 @@ void main() {
     });
 
     test('tolerates missing/partial data', () {
-      final standing = TeamStanding.fromJson({'rank': 3});
+      final standing = TeamStanding.fromJson({'intRank': '3'});
 
       expect(standing.rank, 3);
       expect(standing.teamName, '');
@@ -47,9 +47,9 @@ void main() {
 
     test('coerces numeric strings to ints', () {
       final standing = TeamStanding.fromJson({
-        'rank': '7',
-        'points': '42',
-        'all': {'played': '30'},
+        'intRank': '7',
+        'intPoints': '42',
+        'intPlayed': '30',
       });
 
       expect(standing.rank, 7);
@@ -69,37 +69,6 @@ void main() {
       expect(restored.played, original.played);
       expect(restored.win, original.win);
       expect(restored.form, original.form);
-    });
-  });
-
-  group('AccountStatus.fromJson', () {
-    test('maps plan and request counters', () {
-      final status = AccountStatus.fromJson({
-        'subscription': {'plan': 'Free', 'active': true},
-        'requests': {'current': 12, 'limit_day': 100},
-      });
-
-      expect(status.plan, 'Free');
-      expect(status.active, true);
-      expect(status.requestsToday, 12);
-      expect(status.dailyLimit, 100);
-      expect(status.remainingToday, 88);
-    });
-
-    test('remainingToday never goes negative', () {
-      final status = AccountStatus.fromJson({
-        'requests': {'current': 150, 'limit_day': 100},
-      });
-
-      expect(status.remainingToday, 0);
-    });
-
-    test('falls back gracefully on empty payload', () {
-      final status = AccountStatus.fromJson({});
-
-      expect(status.plan, 'Unknown');
-      expect(status.active, false);
-      expect(status.dailyLimit, 0);
     });
   });
 }

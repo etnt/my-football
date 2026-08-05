@@ -8,16 +8,17 @@ Fixture _finished({
   required int awayGoals,
 }) {
   return Fixture.fromJson({
-    'fixture': {
-      'id': 1,
-      'date': '2023-08-11T19:00:00+00:00',
-      'status': {'short': 'FT', 'long': 'Match Finished', 'elapsed': 90},
-    },
-    'teams': {
-      'home': {'id': homeId, 'name': 'Home', 'logo': ''},
-      'away': {'id': awayId, 'name': 'Away', 'logo': ''},
-    },
-    'goals': {'home': homeGoals, 'away': awayGoals},
+    'idEvent': '1',
+    'strTimestamp': '2023-08-11T19:00:00',
+    'strStatus': 'FT',
+    'idHomeTeam': '$homeId',
+    'strHomeTeam': 'Home',
+    'strHomeTeamBadge': '',
+    'idAwayTeam': '$awayId',
+    'strAwayTeam': 'Away',
+    'strAwayTeamBadge': '',
+    'intHomeScore': '$homeGoals',
+    'intAwayScore': '$awayGoals',
   });
 }
 
@@ -41,19 +42,26 @@ void main() {
 
     test('returns null for unfinished matches', () {
       final upcoming = Fixture.fromJson({
-        'fixture': {
-          'id': 2,
-          'date': '2023-08-19T14:00:00+00:00',
-          'status': {'short': 'NS', 'long': 'Not Started', 'elapsed': null},
-        },
-        'teams': {
-          'home': {'id': 10, 'name': 'Home', 'logo': ''},
-          'away': {'id': 20, 'name': 'Away', 'logo': ''},
-        },
-        'goals': {'home': null, 'away': null},
+        'idEvent': '2',
+        'strTimestamp': '2023-08-19T14:00:00',
+        'strStatus': 'NS',
+        'idHomeTeam': '10',
+        'strHomeTeam': 'Home',
+        'idAwayTeam': '20',
+        'strAwayTeam': 'Away',
+        'intHomeScore': null,
+        'intAwayScore': null,
       });
 
+      expect(upcoming.isFinished, isFalse);
       expect(upcoming.resultFor(10), isNull);
+    });
+
+    test('parses the UTC timestamp without a zone suffix', () {
+      final f = _finished(homeId: 10, awayId: 20, homeGoals: 1, awayGoals: 0);
+
+      expect(f.dateUtc.isUtc, isTrue);
+      expect(f.dateUtc, DateTime.utc(2023, 8, 11, 19));
     });
 
     test('survives a cache round-trip', () {

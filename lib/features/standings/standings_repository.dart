@@ -33,8 +33,10 @@ class StandingsRepository {
     }
 
     try {
-      final fresh =
-          await client.getStandings(leagueId: league.id, season: season);
+      final fresh = await client.getStandings(
+        leagueId: league.id,
+        season: apiSeason(season),
+      );
       await cache.writeJson(key, fresh.map((e) => e.toJson()).toList());
       return fresh;
     } catch (_) {

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/league.dart';
-import '../../shared/widgets/rate_limit_badge.dart';
 import '../fixtures/fixtures_view.dart';
 import '../settings/settings_screen.dart';
 import '../standings/standings_providers.dart';
@@ -24,7 +23,9 @@ class HomeShell extends ConsumerStatefulWidget {
 class _HomeShellState extends ConsumerState<HomeShell> {
   int _index = 0;
 
-  static const _seasons = [2025, 2024, 2023, 2022, 2021];
+  // Seasons offered in the picker (starting year). The current season may be
+  // sparse; older seasons usually have a complete table.
+  static const _seasons = [2026, 2025, 2024, 2023, 2022, 2021];
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +33,6 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       appBar: AppBar(
         title: const Text('My Football'),
         actions: [
-          const RateLimitBadge(),
           IconButton(
             icon: const Icon(Icons.settings),
             tooltip: 'Settings',
@@ -114,7 +114,7 @@ class _SeasonPicker extends ConsumerWidget {
           const Text('Season'),
           const SizedBox(width: 12),
           DropdownButton<int>(
-            value: season,
+            value: seasons.contains(season) ? season : seasons.first,
             items: [
               for (final year in seasons)
                 DropdownMenuItem(
@@ -127,6 +127,16 @@ class _SeasonPicker extends ConsumerWidget {
                 ref.read(seasonProvider.notifier).state = value;
               }
             },
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Data by TheSportsDB',
+              textAlign: TextAlign.end,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+            ),
           ),
         ],
       ),
