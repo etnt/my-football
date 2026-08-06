@@ -10,6 +10,7 @@ premium tier, which adds a **Live scores** tab, **Player stats** leaderboards
 
 <a href="table.png"><img src="table.png" alt="Football table screenshot" width="33%"></a>
 <a href="matches.png"><img src="matches.png" alt="Football matches screenshot" width="33%"></a>
+<a href="stats.png"><img src="stats.png" alt="Player stats screenshot" width="33%"></a>
 
 ## Download & install (Android)
 
