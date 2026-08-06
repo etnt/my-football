@@ -1,6 +1,9 @@
 import 'package:dio/dio.dart';
 
+import '../../models/card_event.dart';
 import '../../models/fixture.dart';
+import '../../models/goal_event.dart';
+import '../../models/match_timeline.dart';
 import 'api_exception.dart';
 
 /// Client for TheSportsDB **v2** REST API, which is Premium-only.
@@ -42,6 +45,28 @@ class SportsDbV2Client {
         .whereType<Map<String, dynamic>>()
         .map(Fixture.fromV2Json)
         .toList();
+  }
+
+  /// All goals and cards in a finished match, parsed from the event timeline.
+  /// Each goal row carries the scorer plus an optional assist, and each card row
+  /// the booked player — so this single call feeds the scorer, assist and card
+  /// leaderboards. Non-goal/card rows (subs) are ignored. Parsed from the
+  /// `lookup` field.
+  Future<MatchTimeline> getEventTimeline({required int eventId}) async {
+    final body = await _get('/lookup/event_timeline/$eventId');
+    final rows = body['lookup'];
+    if (rows is! List) return const MatchTimeline();
+    final maps = rows.whereType<Map<String, dynamic>>().toList();
+    return MatchTimeline(
+      goals: maps
+          .where((r) => (r['strTimeline'] as String?)?.trim() == 'Goal')
+          .map(GoalEvent.fromTimelineJson)
+          .toList(),
+      cards: maps
+          .where((r) => (r['strTimeline'] as String?)?.trim() == 'Card')
+          .map(CardEvent.fromTimelineJson)
+          .toList(),
+    );
   }
 
   Future<Map<String, dynamic>> _get(String path) async {

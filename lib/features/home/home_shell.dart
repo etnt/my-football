@@ -9,6 +9,7 @@ import '../live/live_scores_view.dart';
 import '../settings/settings_screen.dart';
 import '../standings/standings_providers.dart';
 import '../standings/standings_view.dart';
+import '../stats/stats_view.dart';
 
 /// App shell: a shared app bar and league/season selector, with bottom-nav
 /// tabs switching between the table, matches and (Premium) live views.
@@ -48,10 +49,11 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       }
     });
 
-    // Live is a Premium-only tab, appended after Matches.
+    // Live and Stats are Premium-only tabs, appended after Matches.
     final bodies = <Widget>[
       const StandingsView(),
       const FixturesView(),
+      if (isPremium) const StatsView(),
       if (isPremium) const LiveScoresView(),
     ];
     final destinations = <NavigationDestination>[
@@ -65,6 +67,12 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         selectedIcon: Icon(Icons.sports_soccer),
         label: 'Matches',
       ),
+      if (isPremium)
+        const NavigationDestination(
+          icon: Icon(Icons.leaderboard_outlined),
+          selectedIcon: Icon(Icons.leaderboard),
+          label: 'Stats',
+        ),
       if (isPremium)
         const NavigationDestination(
           icon: Icon(Icons.podcasts_outlined),

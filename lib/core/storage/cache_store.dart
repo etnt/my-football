@@ -48,6 +48,7 @@ class CacheStore {
     'standings_',
     'season_events_',
     'team_events_',
+    'stats_',
   ];
 
   /// Drops all cached API responses. Called when the API key changes so free

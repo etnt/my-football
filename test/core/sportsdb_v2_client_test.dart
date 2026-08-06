@@ -109,4 +109,90 @@ void main() {
       );
     });
   });
+
+  group('SportsDbV2Client.getEventTimeline', () {
+    const timelineBody = '''
+    {
+      "lookup": [
+        {
+          "idEvent": "1",
+          "strTimeline": "Goal",
+          "strTimelineDetail": "Normal Goal",
+          "strPlayer": "Erling Haaland",
+          "strAssist": "Phil Foden",
+          "strTeam": "Manchester City"
+        },
+        {
+          "idEvent": "1",
+          "strTimeline": "Goal",
+          "strTimelineDetail": "Penalty",
+          "strPlayer": "Erling Haaland",
+          "strAssist": ""
+        },
+        {
+          "idEvent": "1",
+          "strTimeline": "Card",
+          "strTimelineDetail": "Yellow Card",
+          "strPlayer": "Rodri",
+          "strTeam": "Manchester City"
+        },
+        {
+          "idEvent": "1",
+          "strTimeline": "Card",
+          "strTimelineDetail": "Red Card",
+          "strPlayer": "Some Defender",
+          "strTeam": "Everton"
+        },
+        {
+          "idEvent": "1",
+          "strTimeline": "Goal",
+          "strTimelineDetail": "Own Goal",
+          "strPlayer": "Some Defender"
+        }
+      ]
+    }
+    ''';
+
+    test('parses goal rows and flags penalties/own goals', () async {
+      final adapter = _FakeAdapter(body: timelineBody);
+      final client = _clientWith(adapter);
+
+      final timeline = await client.getEventTimeline(eventId: 1);
+      final goals = timeline.goals;
+
+      expect(adapter.lastOptions?.path, '/lookup/event_timeline/1');
+      expect(goals, hasLength(3));
+
+      expect(goals[0].scorer, 'Erling Haaland');
+      expect(goals[0].assist, 'Phil Foden');
+      expect(goals[0].team, 'Manchester City');
+      expect(goals[0].penalty, isFalse);
+
+      expect(goals[1].penalty, isTrue);
+      expect(goals[1].assist, isNull);
+
+      expect(goals[2].ownGoal, isTrue);
+    });
+
+    test('parses card rows and flags reds', () async {
+      final client = _clientWith(_FakeAdapter(body: timelineBody));
+
+      final cards = (await client.getEventTimeline(eventId: 1)).cards;
+
+      expect(cards, hasLength(2));
+      expect(cards[0].player, 'Rodri');
+      expect(cards[0].team, 'Manchester City');
+      expect(cards[0].red, isFalse);
+      expect(cards[1].player, 'Some Defender');
+      expect(cards[1].red, isTrue);
+    });
+
+    test('returns an empty timeline when lookup is missing', () async {
+      final client = _clientWith(_FakeAdapter(body: '{}'));
+
+      final timeline = await client.getEventTimeline(eventId: 1);
+      expect(timeline.goals, isEmpty);
+      expect(timeline.cards, isEmpty);
+    });
+  });
 }

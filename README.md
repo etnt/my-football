@@ -5,7 +5,8 @@ My Football is a Flutter app for following the big European football leagues.
 It shows live league **standings**, **fixtures** (recent results and upcoming
 matches grouped by matchweek), and per-team **schedules**. Adding a
 [TheSportsDB](https://www.thesportsdb.com/) API key in Settings unlocks the
-premium tier, which adds a **Live scores** tab and richer team data.
+premium tier, which adds a **Live scores** tab, **Player stats** leaderboards
+(top scorers, assists & cards), and richer team data.
 
 <a href="table.png"><img src="table.png" alt="Football table screenshot" width="33%"></a>
 <a href="matches.png"><img src="matches.png" alt="Football matches screenshot" width="33%"></a>
@@ -36,8 +37,19 @@ app talks to two endpoints:
 
 - **v1 (free):** standings, season fixtures, and team events using the shared
   free key. No sign-up required.
-- **v2 (premium):** live in-play scores and fuller team schedules, authenticated
-  with a personal API key sent in the `X-API-KEY` header.
+- **v2 (premium):** live in-play scores, fuller team schedules, and per-match
+  timelines, authenticated with a personal API key sent in the `X-API-KEY`
+  header.
+
+TheSportsDB has no top-scorer endpoint, so the **Player stats** leaderboards are
+built on-device by aggregating each finished match's timeline (a single v2 call
+per match yields scorers, assists and cards). To respect the premium rate
+limit the build is throttled (~50 requests/min, well under the 100/min cap) and
+backs off on HTTP 429. Because a finished match never changes, each match's
+result is cached permanently — so the leaderboard is a one-time build that then
+refreshes incrementally as new matches finish. The season schedule itself is
+re-checked at most every ~6 hours (or immediately on pull-to-refresh), so newly
+finished matches are picked up without re-fetching the ones already processed.
 
 Network responses are cached in `shared_preferences` with a short TTL to reduce
 requests and keep the UI responsive; the cache is cleared automatically when the
@@ -45,12 +57,13 @@ API key changes.
 
 ### Free vs. premium
 
-| Feature                         | Free | Premium (API key) |
-|---------------------------------|:----:|:-----------------:|
-| League standings                |  ✅  |        ✅         |
-| Fixtures (results & upcoming)    |  ✅  |        ✅         |
-| Team schedule                   |  ✅  |     ✅ (fuller)   |
-| Live scores tab                 |  —   |        ✅         |
+| Feature                                 | Free | Premium (API key) |
+|-----------------------------------------|:----:|:-----------------:|
+| League standings                        |  ✅  |        ✅         |
+| Fixtures (results & upcoming)           |  ✅  |        ✅         |
+| Team schedule                           |  ✅  |     ✅ (fuller)   |
+| Live scores tab                         |  —   |        ✅         |
+| Player stats (scorers, assists & cards) |  —   |        ✅         |
 
 Enter your key in **Settings**; it is stored securely on-device via
 `flutter_secure_storage` and never committed to the repo.
@@ -66,13 +79,14 @@ lib/
 ├─ core/
 │  ├─ api/                      # TheSportsDB v1 & v2 clients, exceptions
 │  └─ storage/                  # secure key store + TTL cache store
-├─ models/                      # Fixture, League, TeamStanding
+├─ models/                      # Fixture, League, TeamStanding, GoalEvent, CardEvent
 ├─ providers/                   # app-wide Riverpod providers (API key, clients)
 ├─ features/
 │  ├─ home/                     # bottom-nav shell
 │  ├─ standings/                # league table
 │  ├─ fixtures/                 # results & upcoming, grouped by matchweek
 │  ├─ live/                     # live scores (premium)
+│  ├─ stats/                    # scorers, assists & cards leaderboards (premium)
 │  ├─ team/                     # team detail & schedule
 │  └─ settings/                 # API key entry & validation
 └─ shared/widgets/              # reusable error / message views
