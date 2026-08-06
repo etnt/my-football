@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../config/app_version.dart';
 import '../../models/league.dart';
+import '../../providers/app_providers.dart';
 import '../fixtures/fixtures_view.dart';
+import '../live/live_scores_view.dart';
 import '../settings/settings_screen.dart';
 import '../standings/standings_providers.dart';
 import '../standings/standings_view.dart';
 
 /// App shell: a shared app bar and league/season selector, with bottom-nav
-/// tabs switching between the table and the matches views.
+/// tabs switching between the table, matches and (Premium) live views.
 ///
 /// The body is swapped (not stacked) so the inactive tab's data provider is
 /// disposed — keeping API usage low. Cached data means switching tabs back
@@ -29,9 +32,50 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    final isPremium = ref.watch(isPremiumProvider);
+
+    // Live is a Premium-only tab, appended after Matches.
+    final bodies = <Widget>[
+      const StandingsView(),
+      const FixturesView(),
+      if (isPremium) const LiveScoresView(),
+    ];
+    final destinations = <NavigationDestination>[
+      const NavigationDestination(
+        icon: Icon(Icons.table_rows_outlined),
+        selectedIcon: Icon(Icons.table_rows),
+        label: 'Table',
+      ),
+      const NavigationDestination(
+        icon: Icon(Icons.sports_soccer_outlined),
+        selectedIcon: Icon(Icons.sports_soccer),
+        label: 'Matches',
+      ),
+      if (isPremium)
+        const NavigationDestination(
+          icon: Icon(Icons.podcasts_outlined),
+          selectedIcon: Icon(Icons.podcasts),
+          label: 'Live',
+        ),
+    ];
+    final index = _index.clamp(0, bodies.length - 1);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Football'),
+        title: Text.rich(
+          TextSpan(
+            text: 'My Football',
+            children: [
+              TextSpan(
+                text: '  $appVersion',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w300,
+                ),
+              ),
+            ],
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
@@ -47,26 +91,13 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           const _LeaguePicker(),
           _SeasonPicker(seasons: _seasons),
           const Divider(height: 1),
-          Expanded(
-            child: _index == 0 ? const StandingsView() : const FixturesView(),
-          ),
+          Expanded(child: bodies[index]),
         ],
       ),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
+        selectedIndex: index,
         onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.table_rows_outlined),
-            selectedIcon: Icon(Icons.table_rows),
-            label: 'Table',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.sports_soccer_outlined),
-            selectedIcon: Icon(Icons.sports_soccer),
-            label: 'Matches',
-          ),
-        ],
+        destinations: destinations,
       ),
     );
   }

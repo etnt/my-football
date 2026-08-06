@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../models/fixture.dart';
 import '../../shared/widgets/api_error_view.dart';
 import '../../shared/widgets/message_view.dart';
 import 'fixtures_providers.dart';
@@ -50,11 +51,7 @@ class FixturesView extends ConsumerWidget {
                           ? 'No recent results for this selection.'
                           : 'No upcoming matches for this selection.',
                     )
-                  : ListView.separated(
-                      itemCount: matches.length,
-                      separatorBuilder: (_, _) => const Divider(height: 1),
-                      itemBuilder: (_, i) => FixtureTile(fixture: matches[i]),
-                    ),
+                  : _GroupedFixtureList(matches: matches),
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, _) => ApiErrorView(error: error),
             ),
@@ -63,4 +60,93 @@ class FixturesView extends ConsumerWidget {
       ],
     );
   }
+}
+
+/// A fixture list grouped into collapsible matchweek sections. The first
+/// (top) matchweek starts expanded; the rest are collapsed so it's easy to
+/// scan the weeks and tap one open.
+class _GroupedFixtureList extends StatelessWidget {
+  const _GroupedFixtureList({required this.matches});
+
+  final List<Fixture> matches;
+
+  @override
+  Widget build(BuildContext context) {
+    final groups = _group(matches);
+    return ListView.builder(
+      // Preserves each section's expanded/collapsed state while scrolling.
+      key: const PageStorageKey('fixtures-groups'),
+      itemCount: groups.length,
+      itemBuilder: (context, i) => _MatchweekSection(
+        group: groups[i],
+        initiallyExpanded: i == 0,
+      ),
+    );
+  }
+
+  /// Buckets the (already round-sorted) fixtures into ordered round groups.
+  static List<_RoundGroup> _group(List<Fixture> matches) {
+    final groups = <_RoundGroup>[];
+    for (final f in matches) {
+      if (groups.isEmpty || groups.last.round != f.round) {
+        groups.add(_RoundGroup(f.round, [f]));
+      } else {
+        groups.last.matches.add(f);
+      }
+    }
+    return groups;
+  }
+}
+
+/// A single collapsible matchweek: a tappable header plus its fixtures.
+class _MatchweekSection extends StatelessWidget {
+  const _MatchweekSection({
+    required this.group,
+    required this.initiallyExpanded,
+  });
+
+  final _RoundGroup group;
+  final bool initiallyExpanded;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final count = group.matches.length;
+    return Column(
+      children: [
+        ExpansionTile(
+          // Keeps this section's state even when scrolled off-screen.
+          key: PageStorageKey('mw-${group.round ?? 'other'}'),
+          initiallyExpanded: initiallyExpanded,
+          shape: const Border(),
+          collapsedShape: const Border(),
+          backgroundColor: theme.colorScheme.surfaceContainerHighest,
+          collapsedBackgroundColor: theme.colorScheme.surfaceContainerHighest,
+          childrenPadding: EdgeInsets.zero,
+          title: Text(
+            group.round == null ? 'Other matches' : 'Matchweek ${group.round}',
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          subtitle: Text('$count ${count == 1 ? 'match' : 'matches'}'),
+          children: [
+            const Divider(height: 1),
+            for (final f in group.matches) ...[
+              FixtureTile(fixture: f),
+              const Divider(height: 1),
+            ],
+          ],
+        ),
+        const Divider(height: 1),
+      ],
+    );
+  }
+}
+
+/// An ordered group of fixtures sharing a matchweek (`round`).
+class _RoundGroup {
+  _RoundGroup(this.round, this.matches);
+  final int? round;
+  final List<Fixture> matches;
 }

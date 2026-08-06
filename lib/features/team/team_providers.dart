@@ -20,9 +20,11 @@ typedef TeamRef = ({int teamId, int leagueId});
 final teamFixturesProvider =
     FutureProvider.autoDispose.family<List<Fixture>, TeamRef>((ref, ref2) {
   final season = ref.watch(seasonProvider);
+  final premium = ref.watch(isPremiumProvider);
   return ref.watch(teamRepositoryProvider).getSeasonFixtures(
         teamId: ref2.teamId,
         leagueId: ref2.leagueId,
         season: season,
+        premium: premium,
       );
 });

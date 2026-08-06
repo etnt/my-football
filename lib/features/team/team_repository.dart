@@ -19,12 +19,20 @@ class TeamRepository {
   /// Shared with [FixturesRepository] so we reuse a single network call.
   String _cacheKey(int leagueId, int season) => 'season_events_${leagueId}_$season';
 
+  /// Premium schedule (last + next events) is keyed per team.
+  String _teamCacheKey(int teamId) => 'team_events_$teamId';
+
   Future<List<Fixture>> getSeasonFixtures({
     required int teamId,
     required int leagueId,
     required int season,
+    bool premium = false,
     bool forceRefresh = false,
   }) async {
+    if (premium) {
+      return _premiumSchedule(teamId: teamId, forceRefresh: forceRefresh);
+    }
+
     final events = await _seasonEvents(
       leagueId: leagueId,
       season: season,
@@ -35,6 +43,41 @@ class TeamRepository {
         .toList()
       ..sort((a, b) => b.dateUtc.compareTo(a.dateUtc));
     return matches;
+  }
+
+  /// Premium: combine the team's last results and next fixtures (home & away
+  /// across competitions), deduped by event id and sorted newest-first.
+  Future<List<Fixture>> _premiumSchedule({
+    required int teamId,
+    bool forceRefresh = false,
+  }) async {
+    final key = _teamCacheKey(teamId);
+
+    if (!forceRefresh) {
+      final cached = cache.readJson(key);
+      if (cached != null && cached.isFresh(_ttl)) {
+        return _decode(cached.data);
+      }
+    }
+
+    try {
+      final results = await client.getTeamLastEvents(teamId: teamId);
+      final upcoming = await client.getTeamNextEvents(teamId: teamId);
+
+      final byId = <int, Fixture>{};
+      for (final f in [...results, ...upcoming]) {
+        byId[f.id] = f;
+      }
+      final merged = byId.values.toList()
+        ..sort((a, b) => b.dateUtc.compareTo(a.dateUtc));
+
+      await cache.writeJson(key, merged.map((e) => e.toJson()).toList());
+      return merged;
+    } catch (_) {
+      final cached = cache.readJson(key);
+      if (cached != null) return _decode(cached.data);
+      rethrow;
+    }
   }
 
   Future<List<Fixture>> _seasonEvents({

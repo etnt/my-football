@@ -57,15 +57,19 @@ class _CentreBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final showScore =
-        (fixture.isFinished || fixture.isLive) && fixture.hasScore;
+    final showScore = (fixture.isFinished ||
+            fixture.isLive ||
+            fixture.progress != null) &&
+        fixture.hasScore;
 
     if (showScore) {
       return Text(
         '${fixture.homeGoals} - ${fixture.awayGoals}',
         style: theme.textTheme.titleMedium?.copyWith(
           fontWeight: FontWeight.bold,
-          color: fixture.isLive ? theme.colorScheme.error : null,
+          color: (fixture.isLive || fixture.progress != null)
+              ? theme.colorScheme.error
+              : null,
         ),
       );
     }
@@ -121,6 +125,9 @@ class _TeamLine extends StatelessWidget {
 }
 
 String _statusLabel(Fixture f) {
+  if (f.progress != null && f.progress!.isNotEmpty) {
+    return f.progress!;
+  }
   if (f.isLive) {
     return f.elapsed != null ? "${f.elapsed}'" : (f.statusLong.isEmpty ? 'LIVE' : f.statusLong);
   }

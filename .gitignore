@@ -3,6 +3,11 @@ API-KEY.txt
 *.env
 .env
 
+# Android signing — never commit keystores or key configs
+*.jks
+*.keystore
+key.properties
+
 # Flutter / Dart
 .dart_tool/
 .packages

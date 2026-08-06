@@ -15,6 +15,8 @@ class Fixture {
     required this.homeGoals,
     required this.awayGoals,
     this.postponed = false,
+    this.progress,
+    this.round,
   });
 
   final int id;
@@ -31,6 +33,12 @@ class Fixture {
   final int? homeGoals;
   final int? awayGoals;
   final bool postponed;
+
+  /// Live match minute/phase (e.g. "45", "HT"), from the v2 livescore feed.
+  final String? progress;
+
+  /// League round / matchweek number (`intRound`), when available.
+  final int? round;
 
   static const _finished = {'FT', 'AET', 'PEN', 'Match Finished'};
   static const _live = {'1H', '2H', 'HT', 'ET', 'BT', 'P', 'INT', 'LIVE'};
@@ -73,6 +81,31 @@ class Fixture {
       awayLogo: (json['strAwayTeamBadge'] as String?) ?? '',
       homeGoals: _asIntOrNull(json['intHomeScore']),
       awayGoals: _asIntOrNull(json['intAwayScore']),
+      round: _asIntOrNull(json['intRound']),
+    );
+  }
+
+  /// Builds a [Fixture] from a v2 `livescore` item. These carry a live
+  /// `strProgress` (minute/phase) and use `strStatus` for the match phase.
+  factory Fixture.fromV2Json(Map<String, dynamic> json) {
+    final status = (json['strStatus'] as String?)?.trim();
+    final progress = (json['strProgress'] as String?)?.trim();
+    return Fixture(
+      id: _asInt(json['idEvent']),
+      dateUtc: _parseDate(json),
+      statusShort: (status == null || status.isEmpty) ? 'NS' : status,
+      statusLong: '',
+      elapsed: null,
+      progress: (progress == null || progress.isEmpty) ? null : progress,
+      homeId: _asInt(json['idHomeTeam']),
+      homeName: (json['strHomeTeam'] as String?) ?? '',
+      homeLogo: (json['strHomeTeamBadge'] as String?) ?? '',
+      awayId: _asInt(json['idAwayTeam']),
+      awayName: (json['strAwayTeam'] as String?) ?? '',
+      awayLogo: (json['strAwayTeamBadge'] as String?) ?? '',
+      homeGoals: _asIntOrNull(json['intHomeScore']),
+      awayGoals: _asIntOrNull(json['intAwayScore']),
+      round: _asIntOrNull(json['intRound']),
     );
   }
 
@@ -91,6 +124,7 @@ class Fixture {
         'strAwayTeamBadge': awayLogo,
         'intHomeScore': homeGoals,
         'intAwayScore': awayGoals,
+        'intRound': round,
       };
 
   /// TheSportsDB timestamps are UTC but carry no timezone suffix. Prefer

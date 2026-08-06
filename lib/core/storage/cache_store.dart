@@ -42,4 +42,23 @@ class CacheStore {
       return null;
     }
   }
+
+  /// Prefixes of every cache key written by the app's repositories.
+  static const _cachePrefixes = [
+    'standings_',
+    'season_events_',
+    'team_events_',
+  ];
+
+  /// Drops all cached API responses. Called when the API key changes so free
+  /// and Premium data never bleed into each other.
+  Future<void> clearAll() async {
+    final keys = _prefs
+        .getKeys()
+        .where((k) => _cachePrefixes.any(k.startsWith))
+        .toList();
+    for (final key in keys) {
+      await _prefs.remove(key);
+    }
+  }
 }

@@ -16,7 +16,6 @@ class FixturesRepository {
   FixturesRepository({required this.client, required this.cache});
 
   static const _ttl = Duration(minutes: 30);
-  static const _count = 20;
 
   final FootballApiClient client;
   final CacheStore cache;
@@ -75,12 +74,27 @@ class FixturesRepository {
 
   List<Fixture> _split(List<Fixture> events, FixturesMode mode) {
     if (mode == FixturesMode.results) {
-      final results = events.where((e) => e.isFinished).toList()
-        ..sort((a, b) => b.dateUtc.compareTo(a.dateUtc));
-      return results.take(_count).toList();
+      // Newest first, so the latest matchweek shows at the top.
+      return events.where((e) => e.isFinished).toList()
+        ..sort(_byRoundThenDate(descending: true));
     }
-    final upcoming = events.where((e) => !e.isFinished).toList()
-      ..sort((a, b) => a.dateUtc.compareTo(b.dateUtc));
-    return upcoming.take(_count).toList();
+    // Soonest first for upcoming fixtures.
+    return events.where((e) => !e.isFinished).toList()
+      ..sort(_byRoundThenDate(descending: false));
+  }
+
+  /// Orders by round (matchweek) first, then kick-off within a round. Events
+  /// without a round fall back to date ordering.
+  int Function(Fixture, Fixture) _byRoundThenDate({required bool descending}) {
+    return (a, b) {
+      final ra = a.round;
+      final rb = b.round;
+      if (ra != null && rb != null && ra != rb) {
+        return descending ? rb.compareTo(ra) : ra.compareTo(rb);
+      }
+      return descending
+          ? b.dateUtc.compareTo(a.dateUtc)
+          : a.dateUtc.compareTo(b.dateUtc);
+    };
   }
 }

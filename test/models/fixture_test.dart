@@ -74,4 +74,71 @@ void main() {
       expect(restored.resultFor(10), 'W');
     });
   });
+
+  group('Fixture.fromV2Json', () {
+    test('maps the livescore payload including progress', () {
+      final f = Fixture.fromV2Json({
+        'idEvent': '500',
+        'strTimestamp': '2026-08-06T19:00:00',
+        'strStatus': '2H',
+        'strProgress': '67',
+        'idHomeTeam': '40',
+        'strHomeTeam': 'Arsenal',
+        'strHomeTeamBadge': 'a.png',
+        'idAwayTeam': '34',
+        'strAwayTeam': 'Chelsea',
+        'strAwayTeamBadge': 'c.png',
+        'intHomeScore': '1',
+        'intAwayScore': '0',
+      });
+
+      expect(f.id, 500);
+      expect(f.homeName, 'Arsenal');
+      expect(f.awayName, 'Chelsea');
+      expect(f.homeLogo, 'a.png');
+      expect(f.homeGoals, 1);
+      expect(f.awayGoals, 0);
+      expect(f.progress, '67');
+      expect(f.hasScore, isTrue);
+      expect(f.dateUtc.isUtc, isTrue);
+    });
+  });
+
+  group('Fixture round', () {
+    test('parses intRound and survives a cache round-trip', () {
+      final f = Fixture.fromJson({
+        'idEvent': '900',
+        'strTimestamp': '2026-05-24T15:00:00',
+        'strStatus': 'FT',
+        'idHomeTeam': '10',
+        'strHomeTeam': 'Home',
+        'idAwayTeam': '20',
+        'strAwayTeam': 'Away',
+        'intHomeScore': '2',
+        'intAwayScore': '1',
+        'intRound': '38',
+      });
+
+      expect(f.round, 38);
+      expect(Fixture.fromJson(f.toJson()).round, 38);
+    });
+
+    test('leaves round null when absent', () {
+      final f = Fixture.fromJson({
+        'idEvent': '901',
+        'strTimestamp': '2026-05-24T15:00:00',
+        'strStatus': 'NS',
+        'idHomeTeam': '10',
+        'strHomeTeam': 'Home',
+        'idAwayTeam': '20',
+        'strAwayTeam': 'Away',
+        'intHomeScore': null,
+        'intAwayScore': null,
+      });
+
+      expect(f.round, isNull);
+    });
+  });
 }
+
+

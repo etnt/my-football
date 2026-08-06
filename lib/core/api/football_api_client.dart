@@ -71,6 +71,30 @@ class FootballApiClient {
         .toList();
   }
 
+  /// A team's last few events (home & away). Premium returns up to 10; the free
+  /// key returns a single home event. Parsed from the `results` field.
+  Future<List<Fixture>> getTeamLastEvents({required int teamId}) async {
+    final body = await _get('/$_key/eventslast.php', query: {'id': teamId});
+    final events = body['results'];
+    if (events is! List) return const [];
+    return events
+        .whereType<Map<String, dynamic>>()
+        .map(Fixture.fromJson)
+        .toList();
+  }
+
+  /// A team's next few upcoming events. Premium returns up to 10; the free key
+  /// returns a single event. Parsed from the `events` field.
+  Future<List<Fixture>> getTeamNextEvents({required int teamId}) async {
+    final body = await _get('/$_key/eventsnext.php', query: {'id': teamId});
+    final events = body['events'];
+    if (events is! List) return const [];
+    return events
+        .whereType<Map<String, dynamic>>()
+        .map(Fixture.fromJson)
+        .toList();
+  }
+
   Future<Map<String, dynamic>> _get(
     String path, {
     Map<String, dynamic>? query,

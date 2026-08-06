@@ -198,4 +198,79 @@ void main() {
       );
     });
   });
+
+  group('FootballApiClient.getTeamLastEvents', () {
+    const lastBody = '''
+    {
+      "results": [
+        {
+          "idEvent": "200",
+          "strTimestamp": "2023-08-11T19:00:00",
+          "strStatus": "FT",
+          "idHomeTeam": "40",
+          "strHomeTeam": "Girona",
+          "idAwayTeam": "34",
+          "strAwayTeam": "Arsenal",
+          "intHomeScore": "1",
+          "intAwayScore": "2"
+        }
+      ]
+    }
+    ''';
+
+    test('parses the results key and hits eventslast.php', () async {
+      final adapter = _FakeAdapter(body: lastBody);
+      final client = _clientWith(adapter, apiKey: 'premium123');
+
+      final events = await client.getTeamLastEvents(teamId: 133604);
+
+      expect(events, hasLength(1));
+      expect(events.first.homeName, 'Girona');
+      expect(events.first.awayName, 'Arsenal');
+      expect(adapter.lastOptions?.path, '/premium123/eventslast.php');
+      expect(adapter.lastOptions?.queryParameters['id'], 133604);
+    });
+
+    test('returns empty list when results is missing', () async {
+      final client = _clientWith(_FakeAdapter(body: '{}'), apiKey: 'p');
+
+      final events = await client.getTeamLastEvents(teamId: 1);
+
+      expect(events, isEmpty);
+    });
+  });
+
+  group('FootballApiClient.getTeamNextEvents', () {
+    const nextBody = '''
+    {
+      "events": [
+        {
+          "idEvent": "300",
+          "strTimestamp": "2026-08-20T19:00:00",
+          "strStatus": "NS",
+          "idHomeTeam": "34",
+          "strHomeTeam": "Arsenal",
+          "idAwayTeam": "40",
+          "strAwayTeam": "Leeds",
+          "intHomeScore": null,
+          "intAwayScore": null
+        }
+      ]
+    }
+    ''';
+
+    test('parses the events key and hits eventsnext.php', () async {
+      final adapter = _FakeAdapter(body: nextBody);
+      final client = _clientWith(adapter, apiKey: 'premium123');
+
+      final events = await client.getTeamNextEvents(teamId: 133604);
+
+      expect(events, hasLength(1));
+      expect(events.first.awayName, 'Leeds');
+      expect(events.first.hasScore, isFalse);
+      expect(adapter.lastOptions?.path, '/premium123/eventsnext.php');
+      expect(adapter.lastOptions?.queryParameters['id'], 133604);
+    });
+  });
 }
+

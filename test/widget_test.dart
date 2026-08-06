@@ -52,7 +52,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('My Football'), findsOneWidget);
+    expect(find.textContaining('My Football'), findsOneWidget);
     expect(find.text('Premier League'), findsOneWidget);
     expect(find.text('Table'), findsOneWidget);
     expect(find.text('Matches'), findsOneWidget);
