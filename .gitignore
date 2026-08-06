@@ -16,6 +16,9 @@ build/
 .flutter-plugins-dependencies
 # Note: pubspec.lock is intentionally committed for apps (reproducible builds).
 
+# Generated icon intermediate (produced by tool/gen_icon.py)
+assets/icon/marks.mvg
+
 # IDE
 .idea/
 .vscode/
