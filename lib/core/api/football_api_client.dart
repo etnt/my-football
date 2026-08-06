@@ -11,7 +11,7 @@ import 'api_exception.dart';
 /// * The free key fully supports league tables (including current seasons) but
 ///   heavily limits event/schedule endpoints.
 class FootballApiClient {
-  FootballApiClient({this.apiKey, Dio? dio}) {
+  FootballApiClient({this.apiKey, this.onRateLimited, Dio? dio}) {
     _dio = dio ??
         Dio(
           BaseOptions(
@@ -27,6 +27,9 @@ class FootballApiClient {
   static const _freeKey = '123';
 
   final String? apiKey;
+
+  /// Called when a request is throttled (HTTP 429), so the UI can react.
+  final void Function()? onRateLimited;
   late final Dio _dio;
 
   /// The key used in the request path: the user's key if set, else the free key.
@@ -102,6 +105,7 @@ class FootballApiClient {
     try {
       final res = await _dio.get<dynamic>(path, queryParameters: query);
       if (res.statusCode == 429) {
+        onRateLimited?.call();
         throw const ApiException(
           'Rate limit reached (30 requests/min on the free key). '
           'Wait a moment and try again.',

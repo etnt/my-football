@@ -34,11 +34,19 @@ class _FakeAdapter implements HttpClientAdapter {
   }
 }
 
-FootballApiClient _clientWith(_FakeAdapter adapter, {String? apiKey}) {
+FootballApiClient _clientWith(
+  _FakeAdapter adapter, {
+  String? apiKey,
+  void Function()? onRateLimited,
+}) {
   final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
     ..httpClientAdapter = adapter
     ..options.validateStatus = (status) => status != null && status < 500;
-  return FootballApiClient(apiKey: apiKey, dio: dio);
+  return FootballApiClient(
+    apiKey: apiKey,
+    onRateLimited: onRateLimited,
+    dio: dio,
+  );
 }
 
 void main() {
@@ -196,6 +204,20 @@ void main() {
           ),
         ),
       );
+    });
+
+    test('invokes onRateLimited on HTTP 429', () async {
+      var hits = 0;
+      final client = _clientWith(
+        _FakeAdapter(body: '{}', statusCode: 429),
+        onRateLimited: () => hits++,
+      );
+
+      await expectLater(
+        () => client.getStandings(leagueId: 4328, season: '2023-2024'),
+        throwsA(isA<ApiException>()),
+      );
+      expect(hits, 1);
     });
   });
 

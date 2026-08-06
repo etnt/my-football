@@ -11,7 +11,7 @@ import 'api_exception.dart';
 ///
 /// v2 is used for capabilities that v1 lacks — primarily livescores.
 class SportsDbV2Client {
-  SportsDbV2Client({required this.apiKey, Dio? dio}) {
+  SportsDbV2Client({required this.apiKey, this.onRateLimited, Dio? dio}) {
     _dio = dio ??
         Dio(
           BaseOptions(
@@ -27,6 +27,9 @@ class SportsDbV2Client {
   static const _baseUrl = 'https://www.thesportsdb.com/api/v2/json';
 
   final String apiKey;
+
+  /// Called when a request is throttled (HTTP 429), so the UI can react.
+  final void Function()? onRateLimited;
   late final Dio _dio;
 
   /// Current live matches for a league. Returns an empty list when nothing is
@@ -51,6 +54,7 @@ class SportsDbV2Client {
         );
       }
       if (code == 429) {
+        onRateLimited?.call();
         throw const ApiException(
           'Rate limit reached (100 requests/min). Try again shortly.',
         );

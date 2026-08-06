@@ -34,6 +34,20 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   Widget build(BuildContext context) {
     final isPremium = ref.watch(isPremiumProvider);
 
+    // Surface a brief notice whenever an API request is throttled (HTTP 429).
+    ref.listen<int>(rateLimitProvider, (previous, next) {
+      if (next > (previous ?? 0)) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text('Rate limit reached — please wait a moment.'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+      }
+    });
+
     // Live is a Premium-only tab, appended after Matches.
     final bodies = <Widget>[
       const StandingsView(),

@@ -41,10 +41,28 @@ class ApiKeyNotifier extends AsyncNotifier<String?> {
   }
 }
 
+/// Increments each time an API request is throttled (HTTP 429). The UI listens
+/// to this to surface a brief "rate limit reached" notice. We can't show a
+/// remaining-quota count because TheSportsDB doesn't report one, so this is a
+/// reactive warning only.
+final rateLimitProvider =
+    NotifierProvider<RateLimitController, int>(RateLimitController.new);
+
+class RateLimitController extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  /// Records a throttle event.
+  void hit() => state = state + 1;
+}
+
 /// API client rebuilt whenever the key changes.
 final footballApiClientProvider = Provider<FootballApiClient>((ref) {
   final key = ref.watch(apiKeyProvider).valueOrNull;
-  final client = FootballApiClient(apiKey: key);
+  final client = FootballApiClient(
+    apiKey: key,
+    onRateLimited: () => ref.read(rateLimitProvider.notifier).hit(),
+  );
   ref.onDispose(client.close);
   return client;
 });
@@ -59,7 +77,10 @@ final isPremiumProvider = Provider<bool>((ref) {
 final sportsDbV2ClientProvider = Provider<SportsDbV2Client?>((ref) {
   final key = ref.watch(apiKeyProvider).valueOrNull?.trim();
   if (key == null || key.isEmpty) return null;
-  final client = SportsDbV2Client(apiKey: key);
+  final client = SportsDbV2Client(
+    apiKey: key,
+    onRateLimited: () => ref.read(rateLimitProvider.notifier).hit(),
+  );
   ref.onDispose(client.close);
   return client;
 });
