@@ -7,6 +7,9 @@ matches grouped by matchweek), and per-team **schedules**. Adding a
 [TheSportsDB](https://www.thesportsdb.com/) API key in Settings unlocks the
 premium tier, which adds a **Live scores** tab and richer team data.
 
+<a href="table.png"><img src="table.png" alt="Football table screenshot" width="33%"></a>
+<a href="matches.png"><img src="matches.png" alt="Football matches screenshot" width="33%"></a>
+
 ## Download & install (Android)
 
 Prebuilt Android APKs are published on the repository's
