@@ -111,6 +111,7 @@ class _MatchweekSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final count = group.matches.length;
     return Column(
       children: [
@@ -120,22 +121,40 @@ class _MatchweekSection extends StatelessWidget {
           initiallyExpanded: initiallyExpanded,
           shape: const Border(),
           collapsedShape: const Border(),
-          backgroundColor: theme.colorScheme.surfaceContainerHighest,
-          collapsedBackgroundColor: theme.colorScheme.surfaceContainerHighest,
+          backgroundColor: scheme.secondaryContainer,
+          collapsedBackgroundColor: scheme.secondaryContainer,
+          iconColor: scheme.onSecondaryContainer,
+          collapsedIconColor: scheme.onSecondaryContainer,
           childrenPadding: EdgeInsets.zero,
           title: Text(
             group.round == null ? 'Other matches' : 'Matchweek ${group.round}',
             style: theme.textTheme.labelLarge?.copyWith(
               fontWeight: FontWeight.w600,
+              color: scheme.onSecondaryContainer,
             ),
           ),
-          subtitle: Text('$count ${count == 1 ? 'match' : 'matches'}'),
+          subtitle: Text(
+            '$count ${count == 1 ? 'match' : 'matches'}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSecondaryContainer.withValues(alpha: 0.75),
+            ),
+          ),
           children: [
-            const Divider(height: 1),
-            for (final f in group.matches) ...[
-              FixtureTile(fixture: f),
-              const Divider(height: 1),
-            ],
+            // ExpansionTile's backgroundColor fills the whole expanded tile;
+            // paint the fixtures back onto the normal surface so only the
+            // header strip carries the accent colour.
+            ColoredBox(
+              color: scheme.surface,
+              child: Column(
+                children: [
+                  const Divider(height: 1),
+                  for (final f in group.matches) ...[
+                    FixtureTile(fixture: f),
+                    const Divider(height: 1),
+                  ],
+                ],
+              ),
+            ),
           ],
         ),
         const Divider(height: 1),
