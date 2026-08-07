@@ -8,9 +8,13 @@ matches grouped by matchweek), and per-team **schedules**. Adding a
 premium tier, which adds a **Live scores** tab, **Player stats** leaderboards
 (top scorers, assists & cards), and richer team data.
 
-<a href="table.png"><img src="table.png" alt="Football table screenshot" width="33%"></a>
-<a href="matches.png"><img src="matches.png" alt="Football matches screenshot" width="33%"></a>
-<a href="stats.png"><img src="stats.png" alt="Player stats screenshot" width="33%"></a>
+## Screenshots
+
+<a href="screenshots/table.jpeg"><img src="screenshots/table.jpeg" alt="League standings screenshot" width="19%"></a>
+<a href="screenshots/matches.jpeg"><img src="screenshots/matches.jpeg" alt="Fixtures screenshot" width="19%"></a>
+<a href="screenshots/scorers.jpeg"><img src="screenshots/scorers.jpeg" alt="Top scorers screenshot" width="19%"></a>
+<a href="screenshots/assists.jpeg"><img src="screenshots/assists.jpeg" alt="Top assists screenshot" width="19%"></a>
+<a href="screenshots/cards.jpeg"><img src="screenshots/cards.jpeg" alt="Cards leaderboard screenshot" width="19%"></a>
 
 ## Download & install (Android)
 
