@@ -39,7 +39,7 @@ class GoalNotificationService {
         await _plugin.initialize(settings: settings);
         _ready = true;
       }
-      return _requestPermission();
+      return await _requestPermission();
     } catch (_) {
       return false;
     }
