@@ -4,15 +4,61 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../shared/widgets/api_error_view.dart';
 import '../../shared/widgets/message_view.dart';
 import '../fixtures/widgets/fixture_tile.dart';
+import '../standings/standings_providers.dart' show selectedLeagueProvider;
+import 'goal_alert.dart';
 import 'live_providers.dart';
 
 /// Live scores for the selected league (Premium only). Auto-refreshes while
-/// this tab is visible.
-class LiveScoresView extends ConsumerWidget {
+/// this tab is visible, and fires a phone notification when a goal is scored.
+class LiveScoresView extends ConsumerStatefulWidget {
   const LiveScoresView({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LiveScoresView> createState() => _LiveScoresViewState();
+}
+
+class _LiveScoresViewState extends ConsumerState<LiveScoresView> {
+  final _monitor = LiveGoalMonitor();
+
+  @override
+  void initState() {
+    super.initState();
+    // Ask for notification permission as soon as the Live tab is shown, so a
+    // later goal can actually ring the phone.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(goalNotificationServiceProvider).ensureReady().ignore();
+    });
+  }
+
+  Future<void> _notify(List<GoalAlert> alerts) async {
+    if (alerts.isEmpty) return;
+    final service = ref.read(goalNotificationServiceProvider);
+    final allowed = await service.ensureReady();
+    if (!allowed || !mounted) return;
+    for (final alert in alerts) {
+      try {
+        await service.showGoal(alert);
+      } catch (_) {
+        // Notifications are best-effort; a plugin failure must not break Live.
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // A league switch is a new set of matches — don't compare scores across
+    // leagues, and don't treat the first snapshot of the new league as goals.
+    ref.listen(selectedLeagueProvider, (_, _) => _monitor.reset());
+
+    ref.listen(liveScoresProvider, (_, next) {
+      next.whenData((matches) {
+        final alerts = _monitor.ingest(matches);
+        if (alerts.isEmpty) return;
+        _notify(alerts);
+      });
+    });
+
     final live = ref.watch(liveScoresProvider);
 
     return RefreshIndicator(
@@ -60,6 +106,13 @@ class _LiveHeader extends StatelessWidget {
             style: theme.textTheme.labelMedium?.copyWith(
               color: theme.colorScheme.error,
               fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '· Goal alerts on',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.outline,
             ),
           ),
         ],

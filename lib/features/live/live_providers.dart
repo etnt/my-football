@@ -3,9 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/fixture.dart';
 import '../../providers/app_providers.dart';
 import '../standings/standings_providers.dart' show selectedLeagueProvider;
+import 'goal_notification_service.dart';
 
 /// How often to poll the livescore feed while the Live tab is visible.
 const _livePollInterval = Duration(seconds: 30);
+
+/// Local-notification helper used to alert on goals. Overridden in tests.
+final goalNotificationServiceProvider =
+    Provider<GoalNotificationService>((ref) {
+  return GoalNotificationService();
+});
 
 /// Streams live matches for the selected league, re-polling on a timer.
 ///

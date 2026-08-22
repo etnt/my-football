@@ -5,7 +5,8 @@ My Football is a Flutter app for following the big European football leagues.
 It shows live league **standings**, **fixtures** (recent results and upcoming
 matches grouped by matchweek), and per-team **schedules**. Adding a
 [TheSportsDB](https://www.thesportsdb.com/) API key in Settings unlocks the
-premium tier, which adds a **Live scores** tab, **Player stats** leaderboards
+premium tier, which adds a **Live scores** tab (with phone alerts when a goal
+is scored while that tab is open), **Player stats** leaderboards
 (top scorers, assists & cards), and richer team data.
 
 ## Screenshots
@@ -68,6 +69,7 @@ API key changes.
 | Fixtures (results & upcoming)           |  ✅  |        ✅         |
 | Team schedule                           |  ✅  |     ✅ (fuller)   |
 | Live scores tab                         |  —   |        ✅         |
+| Goal alerts while Live is open          |  —   |        ✅         |
 | Player stats (scorers, assists & cards) |  —   |        ✅         |
 
 Enter your key in **Settings**; it is stored securely on-device via
@@ -109,6 +111,8 @@ Each feature groups its `view`, `repository`, and `providers` together.
   encrypted on-device storage for the premium API key.
 - **[shared_preferences](https://pub.dev/packages/shared_preferences)** —
   lightweight TTL response cache.
+- **[flutter_local_notifications](https://pub.dev/packages/flutter_local_notifications)** —
+  local goal alerts while the Live tab is open.
 
 ## Getting started
 
