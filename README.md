@@ -209,6 +209,35 @@ flutter test                   # unit and widget tests
 flutter test integration_test  # end-to-end integration test
 ```
 
+### Simulating live goal alerts
+
+Firing a *real* goal alert needs a Premium key, a match live right now, and a
+goal scored while the Live tab is open — impractical to reproduce on demand. A
+debug-only simulator feeds synthetic, score-incrementing snapshots into the real
+alert pipeline (`LiveGoalMonitor` → `GoalNotificationService` → OS
+notification) so you can verify it end to end on an emulator or device:
+
+```bash
+flutter run --dart-define=SIMULATE_LIVE=true
+```
+
+Open the **Live** tab (unlocked without a key while simulating) and grant the
+notification permission when prompted. A scripted match then scores roughly
+every five seconds, posting a real goal notification each time. The flag is a
+compile-time constant, so it has no effect on normal or release builds; the
+simulator lives in [`lib/dev/live_simulator.dart`](lib/dev/live_simulator.dart)
+(tweak the cadence and goal sequence there).
+
+> **Emulator tip:** prefer a **Google APIs** (non–Play Store) system image.
+> Play-Store images can crash-loop Google Play Services in the background, which
+> floods `logcat` and drops the `flutter run` session. Because the flag is baked
+> into the built APK, you can also just relaunch the already-installed app
+> instead of relying on the `flutter run` stream:
+>
+> ```bash
+> adb shell monkey -p com.myfootball.my_football -c android.intent.category.LAUNCHER 1
+> ```
+
 ## Release signing
 
 Release APKs are signed with a persistent keystore so that updates install over
