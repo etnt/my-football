@@ -6,6 +6,7 @@ import '../../shared/widgets/message_view.dart';
 import '../fixtures/widgets/fixture_tile.dart';
 import '../standings/standings_providers.dart' show selectedLeagueProvider;
 import 'goal_alert.dart';
+import 'live_match_goals_sheet.dart';
 import 'live_providers.dart';
 
 /// Live scores for the selected league (Premium only). Auto-refreshes while
@@ -68,7 +69,8 @@ class _LiveScoresViewState extends ConsumerState<LiveScoresView> {
           if (matches.isEmpty) {
             return const MessageView(
               icon: Icons.sports_soccer_outlined,
-              text: 'No live matches in this league right now.\n'
+              text:
+                  'No live matches in this league right now.\n'
                   'Scores update automatically when games kick off.',
             );
           }
@@ -77,7 +79,16 @@ class _LiveScoresViewState extends ConsumerState<LiveScoresView> {
             separatorBuilder: (_, _) => const Divider(height: 1),
             itemBuilder: (context, index) {
               if (index == 0) return const _LiveHeader();
-              return FixtureTile(fixture: matches[index - 1]);
+              final fixture = matches[index - 1];
+              return FixtureTile(
+                fixture: fixture,
+                onTap: () => showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  showDragHandle: true,
+                  builder: (_) => LiveMatchGoalsSheet(fixture: fixture),
+                ),
+              );
             },
           );
         },

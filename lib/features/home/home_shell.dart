@@ -130,22 +130,32 @@ class _LeaguePicker extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final followed = ref.watch(followedLeaguesProvider);
     final selected = ref.watch(selectedLeagueProvider);
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
+    // Guard against a stale selection not present in the followed list, which
+    // would otherwise make DropdownButton throw.
+    final value = followed.contains(selected) ? selected : followed.first;
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
         children: [
-          for (final league in League.values)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: ChoiceChip(
-                label: Text(league.label),
-                selected: league == selected,
-                onSelected: (_) =>
-                    ref.read(selectedLeagueProvider.notifier).state = league,
-              ),
-            ),
+          const Text('League'),
+          const SizedBox(width: 12),
+          DropdownButton<League>(
+            value: value,
+            items: [
+              for (final league in followed)
+                DropdownMenuItem(
+                  value: league,
+                  child: Text(league.label),
+                ),
+            ],
+            onChanged: (league) {
+              if (league != null) {
+                ref.read(selectedLeagueProvider.notifier).state = league;
+              }
+            },
+          ),
         ],
       ),
     );

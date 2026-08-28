@@ -103,8 +103,11 @@ void main() {
       expect(
         () => client.getLiveScores(leagueId: 4328),
         throwsA(
-          isA<ApiException>()
-              .having((e) => e.message, 'message', contains('Rate limit')),
+          isA<ApiException>().having(
+            (e) => e.message,
+            'message',
+            contains('Rate limit'),
+          ),
         ),
       );
     });
@@ -120,7 +123,8 @@ void main() {
           "strTimelineDetail": "Normal Goal",
           "strPlayer": "Erling Haaland",
           "strAssist": "Phil Foden",
-          "strTeam": "Manchester City"
+          "strTeam": "Manchester City",
+          "intTime": "23"
         },
         {
           "idEvent": "1",
@@ -166,6 +170,7 @@ void main() {
       expect(goals[0].scorer, 'Erling Haaland');
       expect(goals[0].assist, 'Phil Foden');
       expect(goals[0].team, 'Manchester City');
+      expect(goals[0].minute, 23);
       expect(goals[0].penalty, isFalse);
 
       expect(goals[1].penalty, isTrue);

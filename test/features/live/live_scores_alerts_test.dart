@@ -8,7 +8,9 @@ import 'package:my_football/features/live/goal_notification_service.dart';
 import 'package:my_football/features/live/live_providers.dart';
 import 'package:my_football/features/live/live_scores_view.dart';
 import 'package:my_football/models/fixture.dart';
+import 'package:my_football/models/goal_event.dart';
 import 'package:my_football/models/league.dart';
+import 'package:my_football/models/match_timeline.dart';
 import 'package:my_football/features/standings/standings_providers.dart';
 
 Fixture _live({
@@ -48,8 +50,9 @@ class _FakeNotifications extends GoalNotificationService {
 }
 
 void main() {
-  testWidgets('fires a notification when a live score increases',
-      (tester) async {
+  testWidgets('fires a notification when a live score increases', (
+    tester,
+  ) async {
     final controller = StreamController<List<Fixture>>();
     final notifications = _FakeNotifications();
     addTearDown(controller.close);
@@ -80,8 +83,9 @@ void main() {
     expect(notifications.shown.single.body, contains('Arsenal 1-0 Chelsea'));
   });
 
-  testWidgets('does not notify after switching league until a new goal',
-      (tester) async {
+  testWidgets('does not notify after switching league until a new goal', (
+    tester,
+  ) async {
     final controller = StreamController<List<Fixture>>();
     final notifications = _FakeNotifications();
     addTearDown(controller.close);
@@ -112,5 +116,44 @@ void main() {
     await tester.pump();
 
     expect(notifications.shown, isEmpty);
+  });
+
+  testWidgets('shows scorer and minute when a live match is tapped', (
+    tester,
+  ) async {
+    final notifications = _FakeNotifications();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          liveScoresProvider.overrideWith(
+            (ref) => Stream.value([_live(id: 1, homeGoals: 1, awayGoals: 0)]),
+          ),
+          matchTimelineProvider.overrideWith(
+            (ref, eventId) async => const MatchTimeline(
+              goals: [
+                GoalEvent(
+                  scorer: 'Bukayo Saka',
+                  minute: 23,
+                  assist: 'Martin Ødegaard',
+                  team: 'Arsenal',
+                ),
+              ],
+            ),
+          ),
+          goalNotificationServiceProvider.overrideWithValue(notifications),
+        ],
+        child: const MaterialApp(home: Scaffold(body: LiveScoresView())),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Arsenal'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Goals'), findsOneWidget);
+    expect(find.text("23'"), findsOneWidget);
+    expect(find.text('Bukayo Saka'), findsOneWidget);
+    expect(find.textContaining('Assist: Martin Ødegaard'), findsOneWidget);
   });
 }

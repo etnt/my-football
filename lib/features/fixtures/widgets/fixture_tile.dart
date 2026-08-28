@@ -4,46 +4,51 @@ import '../../../models/fixture.dart';
 
 /// A single match row: home team, score/kick-off, away team, plus status.
 class FixtureTile extends StatelessWidget {
-  const FixtureTile({super.key, required this.fixture});
+  const FixtureTile({super.key, required this.fixture, this.onTap});
 
   final Fixture fixture;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: _TeamLine(
-                  name: fixture.homeName,
-                  logo: fixture.homeLogo,
-                  alignEnd: true,
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _TeamLine(
+                    name: fixture.homeName,
+                    logo: fixture.homeLogo,
+                    alignEnd: true,
+                  ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: _CentreBlock(fixture: fixture),
-              ),
-              Expanded(
-                child: _TeamLine(
-                  name: fixture.awayName,
-                  logo: fixture.awayLogo,
-                  alignEnd: false,
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: _CentreBlock(fixture: fixture),
                 ),
+                Expanded(
+                  child: _TeamLine(
+                    name: fixture.awayName,
+                    logo: fixture.awayLogo,
+                    alignEnd: false,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _statusLabel(fixture),
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.outline,
               ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _statusLabel(fixture),
-            style: theme.textTheme.labelSmall
-                ?.copyWith(color: theme.colorScheme.outline),
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -57,9 +62,8 @@ class _CentreBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final showScore = (fixture.isFinished ||
-            fixture.isLive ||
-            fixture.progress != null) &&
+    final showScore =
+        (fixture.isFinished || fixture.isLive || fixture.progress != null) &&
         fixture.hasScore;
 
     if (showScore) {
@@ -117,8 +121,9 @@ class _TeamLine extends StatelessWidget {
         : [logoWidget, const SizedBox(width: 8), text];
 
     return Row(
-      mainAxisAlignment:
-          alignEnd ? MainAxisAlignment.end : MainAxisAlignment.start,
+      mainAxisAlignment: alignEnd
+          ? MainAxisAlignment.end
+          : MainAxisAlignment.start,
       children: children,
     );
   }
@@ -129,7 +134,9 @@ String _statusLabel(Fixture f) {
     return f.progress!;
   }
   if (f.isLive) {
-    return f.elapsed != null ? "${f.elapsed}'" : (f.statusLong.isEmpty ? 'LIVE' : f.statusLong);
+    return f.elapsed != null
+        ? "${f.elapsed}'"
+        : (f.statusLong.isEmpty ? 'LIVE' : f.statusLong);
   }
   if (f.isFinished) {
     return f.statusShort == 'FT' ? 'Full time' : f.statusShort;

@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/football_api_client.dart';
 import '../../models/league.dart';
 import '../../providers/app_providers.dart';
+import '../standings/standings_providers.dart';
+import 'league_catalog_providers.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -104,6 +106,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          const _FollowedLeaguesSection(),
+          const Divider(height: 32),
           Row(
             children: [
               Expanded(
@@ -247,6 +251,165 @@ class _StatusBanner extends StatelessWidget {
                   .bodyMedium
                   ?.copyWith(color: color)),
         ),
+      ],
+    );
+  }
+}
+
+/// Lets the user browse TheSportsDB's catalogue by country and tick the
+/// leagues they want to follow. Followed leagues appear in the app's top
+/// dropdown and are persisted across launches.
+class _FollowedLeaguesSection extends ConsumerStatefulWidget {
+  const _FollowedLeaguesSection();
+
+  @override
+  ConsumerState<_FollowedLeaguesSection> createState() =>
+      _FollowedLeaguesSectionState();
+}
+
+class _FollowedLeaguesSectionState
+    extends ConsumerState<_FollowedLeaguesSection> {
+  String? _country;
+
+  @override
+  Widget build(BuildContext context) {
+    final followed = ref.watch(followedLeaguesProvider);
+    final countriesAsync = ref.watch(countriesProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Followed leagues',
+            style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        const Text(
+          'Pick a country, then tick the leagues you want to follow. They '
+          'appear in the dropdown at the top of the app. At least one league '
+          'must stay followed.',
+        ),
+        const SizedBox(height: 12),
+        if (followed.isEmpty)
+          const Text('No leagues followed yet.')
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              for (final league in followed)
+                InputChip(
+                  label: Text(league.country == null
+                      ? league.name
+                      : '${league.name} · ${league.country}'),
+                  onDeleted: followed.length == 1
+                      ? null
+                      : () => ref
+                          .read(followedLeaguesProvider.notifier)
+                          .toggle(league),
+                ),
+            ],
+          ),
+        const SizedBox(height: 16),
+        countriesAsync.when(
+          data: (countries) => DropdownMenu<String>(
+            initialSelection: _country,
+            enableFilter: true,
+            requestFocusOnTap: true,
+            label: const Text('Country'),
+            expandedInsets: EdgeInsets.zero,
+            menuHeight: 320,
+            dropdownMenuEntries: [
+              for (final c in countries) DropdownMenuEntry(value: c, label: c),
+            ],
+            onSelected: (c) => setState(() => _country = c),
+          ),
+          loading: () => const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: LinearProgressIndicator(),
+          ),
+          error: (_, _) => _CatalogError(
+            message: 'Could not load countries.',
+            onRetry: () => ref.invalidate(countriesProvider),
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (_country != null) _LeaguesForCountry(country: _country!),
+      ],
+    );
+  }
+}
+
+/// The soccer leagues for a country, each with a follow checkbox.
+class _LeaguesForCountry extends ConsumerWidget {
+  const _LeaguesForCountry({required this.country});
+
+  final String country;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final leaguesAsync = ref.watch(leaguesByCountryProvider(country));
+    final followed = ref.watch(followedLeaguesProvider);
+
+    return leaguesAsync.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.symmetric(vertical: 16),
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (_, _) => _CatalogError(
+        message: 'Could not load leagues for $country.',
+        onRetry: () => ref.invalidate(leaguesByCountryProvider(country)),
+      ),
+      data: (leagues) {
+        if (leagues.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text('No soccer leagues found for $country.'),
+          );
+        }
+        return Column(
+          children: [
+            for (final league in leagues)
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                title: Text(league.name),
+                value: followed.any((l) => l.id == league.id),
+                onChanged: (_) {
+                  final isLastFollowed = followed.length == 1 &&
+                      followed.any((l) => l.id == league.id);
+                  // Keep at least one league followed.
+                  if (isLastFollowed) return;
+                  ref.read(followedLeaguesProvider.notifier).toggle(league);
+                },
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Inline error with a retry button for catalogue loads.
+class _CatalogError extends StatelessWidget {
+  const _CatalogError({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Icon(Icons.error_outline, color: scheme.error, size: 20),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(message,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(color: scheme.error)),
+        ),
+        TextButton(onPressed: onRetry, child: const Text('Retry')),
       ],
     );
   }

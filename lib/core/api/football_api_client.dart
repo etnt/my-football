@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../../models/fixture.dart';
+import '../../models/league.dart';
 import '../../models/team_standing.dart';
 import 'api_exception.dart';
 
@@ -54,6 +55,39 @@ class FootballApiClient {
         .whereType<Map<String, dynamic>>()
         .map(TeamStanding.fromJson)
         .toList();
+  }
+
+  /// All countries with data on TheSportsDB, sorted alphabetically. Works on
+  /// the free key. Used to browse the league catalogue by country.
+  Future<List<String>> getCountries() async {
+    final body = await _get('/$_key/all_countries.php');
+    final list = body['countries'];
+    if (list is! List) return const [];
+    final names = <String>[];
+    for (final item in list.whereType<Map<String, dynamic>>()) {
+      final name = (item['name_en'] as String?)?.trim();
+      if (name != null && name.isNotEmpty) names.add(name);
+    }
+    names.sort();
+    return names;
+  }
+
+  /// Soccer leagues within [country]. Works on the free key.
+  Future<List<League>> getLeaguesByCountry(String country) async {
+    // Note: this endpoint returns leagues under a `countries` key.
+    final body = await _get('/$_key/search_all_leagues.php', query: {
+      'c': country,
+      's': 'Soccer',
+    });
+    final list = body['countries'];
+    if (list is! List) return const [];
+    final leagues = list
+        .whereType<Map<String, dynamic>>()
+        .map(League.fromApiJson)
+        .whereType<League>()
+        .toList()
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return leagues;
   }
 
   /// All events for a league season. On the free key this is capped to the
