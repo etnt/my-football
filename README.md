@@ -17,6 +17,9 @@ is scored while that tab is open), **Player stats** leaderboards
 <a href="screenshots/assists.jpeg"><img src="screenshots/assists.jpeg" alt="Top assists screenshot" width="19%"></a>
 <a href="screenshots/cards.jpeg"><img src="screenshots/cards.jpeg" alt="Cards leaderboard screenshot" width="19%"></a>
 
+<a href="screenshots/live-score.jpeg"><img src="screenshots/live-score.jpeg" alt="Live score screenshot" width="19%"></a>
+<a href="screenshots/live-scorers.jpeg"><img src="screenshots/live-scorers.jpeg" alt="Live scorers screenshot" width="19%"></a>
+
 ## Download & install (Android)
 
 Prebuilt Android APKs are published on the repository's
