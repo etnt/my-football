@@ -6,20 +6,47 @@ import '../../models/goal_event.dart';
 import 'live_providers.dart';
 
 /// A quick summary of the goals recorded for an ongoing match.
-class LiveMatchGoalsSheet extends ConsumerWidget {
+///
+/// The sheet hugs its content: with a couple of goals it is short, with many
+/// it grows up to a screen-height cap and the goal list scrolls (with a
+/// visible scrollbar, so it's clear more rows are available).
+class LiveMatchGoalsSheet extends ConsumerStatefulWidget {
   const LiveMatchGoalsSheet({super.key, required this.fixture});
 
   final Fixture fixture;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final timeline = ref.watch(matchTimelineProvider(fixture.id));
-    final theme = Theme.of(context);
+  ConsumerState<LiveMatchGoalsSheet> createState() =>
+      _LiveMatchGoalsSheetState();
+}
 
-    return FractionallySizedBox(
-      heightFactor: 0.55,
+/// Most the sheet may occupy, so the match header always stays visible.
+const _maxHeightFactor = 0.7;
+
+/// Height reserved for the loading/error/empty states, so they don't
+/// collapse the sheet to a thin strip.
+const _statusAreaHeight = 180.0;
+
+class _LiveMatchGoalsSheetState extends ConsumerState<LiveMatchGoalsSheet> {
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final timeline = ref.watch(matchTimelineProvider(widget.fixture.id));
+    final theme = Theme.of(context);
+    final maxHeight = MediaQuery.sizeOf(context).height * _maxHeightFactor;
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxHeight),
       child: SafeArea(
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
@@ -32,8 +59,10 @@ class LiveMatchGoalsSheet extends ConsumerWidget {
                         Text('Goals', style: theme.textTheme.titleLarge),
                         const SizedBox(height: 2),
                         Text(
-                          '${fixture.homeName} ${fixture.homeGoals ?? 0}–'
-                          '${fixture.awayGoals ?? 0} ${fixture.awayName}',
+                          '${widget.fixture.homeName} '
+                          '${widget.fixture.homeGoals ?? 0}–'
+                          '${widget.fixture.awayGoals ?? 0} '
+                          '${widget.fixture.awayName}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodyMedium,
@@ -50,32 +79,47 @@ class LiveMatchGoalsSheet extends ConsumerWidget {
               ),
             ),
             const Divider(height: 1),
-            Expanded(
+            Flexible(
               child: timeline.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (_, _) => _TimelineMessage(
-                  icon: Icons.cloud_off_outlined,
-                  text: 'Couldn’t load goal details.',
-                  action: TextButton.icon(
-                    onPressed: () =>
-                        ref.invalidate(matchTimelineProvider(fixture.id)),
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Try again'),
+                loading: () => const _StatusArea(
+                  child: CircularProgressIndicator(),
+                ),
+                error: (_, _) => _StatusArea(
+                  child: _TimelineMessage(
+                    icon: Icons.cloud_off_outlined,
+                    text: 'Couldn’t load goal details.',
+                    action: TextButton.icon(
+                      onPressed: () => ref.invalidate(
+                        matchTimelineProvider(widget.fixture.id),
+                      ),
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Try again'),
+                    ),
                   ),
                 ),
                 data: (value) {
                   if (value.goals.isEmpty) {
-                    return const _TimelineMessage(
-                      icon: Icons.sports_soccer_outlined,
-                      text: 'Goal details aren’t available yet.',
+                    return const _StatusArea(
+                      child: _TimelineMessage(
+                        icon: Icons.sports_soccer_outlined,
+                        text: 'Goal details aren’t available yet.',
+                      ),
                     );
                   }
-                  return ListView.separated(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: value.goals.length,
-                    separatorBuilder: (_, _) => const Divider(height: 1),
-                    itemBuilder: (context, index) =>
-                        _GoalRow(goal: value.goals[index]),
+                  return Scrollbar(
+                    controller: _scrollController,
+                    thumbVisibility: true,
+                    child: ListView.separated(
+                      controller: _scrollController,
+                      // Hug the content when it fits; clamp + scroll when
+                      // it doesn't (Flexible/ConstrainedBox provide the cap).
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount: value.goals.length,
+                      separatorBuilder: (_, _) => const Divider(height: 1),
+                      itemBuilder: (context, index) =>
+                          _GoalRow(goal: value.goals[index]),
+                    ),
                   );
                 },
               ),
@@ -83,6 +127,22 @@ class LiveMatchGoalsSheet extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Bounded container for non-scrollable sheet states (loading/error/empty).
+class _StatusArea extends StatelessWidget {
+  const _StatusArea({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: _statusAreaHeight,
+      width: double.infinity,
+      child: Center(child: child),
     );
   }
 }
