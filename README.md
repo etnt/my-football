@@ -1,6 +1,8 @@
 # My Football
 > Track the major football leagues
 
+<a href='https://ko-fi.com/G8L3263HSM' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
+
 My Football is a Flutter app for following the big European football leagues.
 It shows live league **standings**, **fixtures** (recent results and upcoming
 matches grouped by matchweek), and per-team **schedules**. Adding a
