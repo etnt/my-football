@@ -118,6 +118,40 @@ void main() {
     expect(notifications.shown, isEmpty);
   });
 
+  testWidgets('still notifies after an intermediate empty snapshot', (
+    tester,
+  ) async {
+    final controller = StreamController<List<Fixture>>();
+    final notifications = _FakeNotifications();
+    addTearDown(controller.close);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          liveScoresProvider.overrideWith((ref) => controller.stream),
+          goalNotificationServiceProvider.overrideWithValue(notifications),
+        ],
+        child: const MaterialApp(home: Scaffold(body: LiveScoresView())),
+      ),
+    );
+
+    controller.add([_live(id: 1, homeGoals: 0, awayGoals: 0)]);
+    await tester.pump();
+    await tester.pump();
+
+    // Feed hiccup: an empty snapshot in between must not swallow the goal.
+    controller.add(const []);
+    await tester.pump();
+    await tester.pump();
+
+    controller.add([_live(id: 1, homeGoals: 1, awayGoals: 0)]);
+    await tester.pump();
+    await tester.pump();
+
+    expect(notifications.shown, hasLength(1));
+    expect(notifications.shown.single.title, 'GOAL!');
+  });
+
   testWidgets('shows scorer and minute when a live match is tapped', (
     tester,
   ) async {

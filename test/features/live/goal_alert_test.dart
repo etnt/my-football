@@ -138,5 +138,24 @@ void main() {
 
       expect(afterReset, isEmpty);
     });
+
+    test('an empty snapshot keeps the baseline so later goals still alert', () {
+      final monitor = LiveGoalMonitor();
+      monitor.ingest([_live(id: 1, homeGoals: 0, awayGoals: 0)]);
+
+      // Feed hiccup: an empty poll must not be treated as a new baseline.
+      expect(monitor.ingest(const []), isEmpty);
+      expect(monitor.ingest([_live(id: 1, homeGoals: 1, awayGoals: 0)]),
+          hasLength(1));
+    });
+
+    test('an empty first snapshot is still a valid baseline', () {
+      final monitor = LiveGoalMonitor();
+      // No baseline yet: an empty snapshot sets it, so the next real snapshot
+      // is "new matches" and stays quiet (first-snapshot behaviour).
+      expect(monitor.ingest(const []), isEmpty);
+      expect(monitor.ingest([_live(id: 1, homeGoals: 4, awayGoals: 0)]),
+          isEmpty);
+    });
   });
 }

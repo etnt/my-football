@@ -73,7 +73,12 @@ class LiveGoalMonitor {
 
   /// Ingest a new snapshot. Returns alerts for score increases since the
   /// previous call, or an empty list on the first snapshot / after [reset].
+  ///
+  /// An empty snapshot (feed hiccup) does not reset the baseline: if it did,
+  /// the next real snapshot would look like "new matches" and any goals
+  /// scored in between would be silently dropped.
   List<GoalAlert> ingest(List<Fixture> matches) {
+    if (matches.isEmpty && _baseline != null) return const [];
     final previous = _baseline;
     _baseline = List<Fixture>.unmodifiable(matches);
     if (previous == null) return const [];
