@@ -5,6 +5,8 @@ import '../../models/fixture.dart';
 import '../../shared/widgets/api_error_view.dart';
 import '../../shared/widgets/message_view.dart';
 import '../fixtures/widgets/fixture_tile.dart';
+import '../reminders/match_reminder.dart';
+import '../reminders/reminder_sheet.dart';
 import 'team_providers.dart';
 
 class TeamDetailScreen extends ConsumerWidget {
@@ -45,7 +47,7 @@ class TeamDetailScreen extends ConsumerWidget {
   }
 }
 
-class _TeamBody extends StatelessWidget {
+class _TeamBody extends ConsumerWidget {
   const _TeamBody({
     required this.teamId,
     required this.teamName,
@@ -59,7 +61,7 @@ class _TeamBody extends StatelessWidget {
   final List<Fixture> fixtures;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (fixtures.isEmpty) {
       return const MessageView(
         icon: Icons.info_outline,
@@ -89,7 +91,15 @@ class _TeamBody extends StatelessWidget {
         ],
         if (next.isNotEmpty) ...[
           const _SectionHeader('Upcoming'),
-          for (final f in next) FixtureTile(fixture: f),
+          for (final f in next)
+            FixtureTile(
+              fixture: f,
+              // Only upcoming, not-yet-started matches offer a kick-off
+              // reminder (REQ-006).
+              onDoubleTap: MatchReminder.canRemind(f)
+                  ? () => showReminderSheet(context, ref, f)
+                  : null,
+            ),
         ],
         const SizedBox(height: 16),
       ],

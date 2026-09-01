@@ -3,13 +3,13 @@ goal: Match kick-off reminder alerts configured by double-tapping an upcoming fi
 version: 1.0
 date_created: 2026-09-01
 owner: my-football maintainers
-status: 'Planned'
+status: 'In progress'
 tags: [feature, notifications, fixtures, reminders]
 ---
 
 # Introduction
 
-![Status: Planned](https://img.shields.io/badge/status-Planned-blue)
+![Status: In progress](https://img.shields.io/badge/status-In%20progress-yellow)
 
 This plan adds **kick-off reminders** to the my-football Flutter app. When a
 user double-taps an upcoming match (in the Fixtures tab or a team's "next
@@ -68,12 +68,12 @@ existing `GoalNotificationService`.
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-001 | Add `timezone: ^0.10.1` and `flutter_timezone: ^4.1.0` (latest stable at implementation time; `timezone` is already in `pubspec.lock` as a transitive dep) to `dependencies` in `pubspec.yaml`, then run `flutter pub get`. | | |
-| TASK-002 | Create `lib/features/reminders/match_reminder.dart`: immutable `MatchReminder` class with fields `fixtureId` (int), `kickoffUtc` (DateTime, UTC), `homeName` (String), `awayName` (String), `leadMinutes` (int); a static `const defaultLeadMinutes = 15`; `static const allowedLeadMinutes = [15, 30, 60, 120]`; `DateTime get notifyAtUtc => kickoffUtc.subtract(Duration(minutes: leadMinutes))`; `bool get isExpired => DateTime.now().toUtc().isAfter(kickoffUtc)`; `toJson()`/`fromJson()` serialising `kickoffUtc` as ISO-8601 UTC string. | | |
-| TASK-003 | Create `lib/features/reminders/reminder_store.dart`: `ReminderStore` taking a `SharedPreferences` (constructed from `sharedPreferencesProvider` like `CacheStore` in `lib/core/storage/cache_store.dart`). Persists a JSON list under key `'match_reminders'`. Methods: `Future<List<MatchReminder>> load()`, `Future<void> upsert(MatchReminder reminder)` (replace by `fixtureId`), `Future<void> remove(int fixtureId)`, `Future<void> removeExpired()`, `MatchReminder? forFixture(List<MatchReminder> list, int fixtureId)`. | | |
-| TASK-004 | Create `lib/features/reminders/reminders_providers.dart`: `reminderStoreProvider` (`Provider<ReminderStore>` built from `sharedPreferencesProvider`, mirroring `fixturesRepositoryProvider` in `lib/features/fixtures/fixtures_providers.dart`), and `remindersProvider` (`Notifier<AsyncValue<List<MatchReminder>>>`) that loads once on build and exposes `setLead(Fixture fixture, int? leadMinutes)` — `null` meaning Off — which persists via the store and returns the resulting list. | | |
-| TASK-005 | Create `test/features/reminders/match_reminder_test.dart`: JSON round-trip, `notifyAtUtc` math for the 15-minute default, `isExpired` true/false cases. | | |
-| TASK-006 | Create `test/features/reminders/reminder_store_test.dart` using `SharedPreferences.setMockInitialValues({})`: upsert inserts and replaces by `fixtureId`, remove deletes, removeExpired keeps only future kick-offs, load returns empty list on fresh storage. | | |
+| TASK-001 | Add `timezone: ^0.11.1` (adjusted during implementation: flutter_local_notifications 22 requires timezone >=0.11) and `flutter_timezone: ^4.1.0` (latest stable at implementation time; `timezone` is already in `pubspec.lock` as a transitive dep) to `dependencies` in `pubspec.yaml`, then run `flutter pub get`. | ✅ | 2026-09-01 |
+| TASK-002 | Create `lib/features/reminders/match_reminder.dart`: immutable `MatchReminder` class with fields `fixtureId` (int), `kickoffUtc` (DateTime, UTC), `homeName` (String), `awayName` (String), `leadMinutes` (int); a static `const defaultLeadMinutes = 15`; `static const allowedLeadMinutes = [15, 30, 60, 120]`; `DateTime get notifyAtUtc => kickoffUtc.subtract(Duration(minutes: leadMinutes))`; `bool get isExpired => DateTime.now().toUtc().isAfter(kickoffUtc)`; `toJson()`/`fromJson()` serialising `kickoffUtc` as ISO-8601 UTC string. | ✅ | 2026-09-01 |
+| TASK-003 | Create `lib/features/reminders/reminder_store.dart`: `ReminderStore` taking a `SharedPreferences` (constructed from `sharedPreferencesProvider` like `CacheStore` in `lib/core/storage/cache_store.dart`). Persists a JSON list under key `'match_reminders'`. Methods: `Future<List<MatchReminder>> load()`, `Future<void> upsert(MatchReminder reminder)` (replace by `fixtureId`), `Future<void> remove(int fixtureId)`, `Future<void> removeExpired()`, `MatchReminder? forFixture(List<MatchReminder> list, int fixtureId)`. | ✅ | 2026-09-01 |
+| TASK-004 | Create `lib/features/reminders/reminders_providers.dart`: `reminderStoreProvider` (`Provider<ReminderStore>` built from `sharedPreferencesProvider`, mirroring `fixturesRepositoryProvider` in `lib/features/fixtures/fixtures_providers.dart`), and `remindersProvider` (`Notifier<AsyncValue<List<MatchReminder>>>`) that loads once on build and exposes `setLead(Fixture fixture, int? leadMinutes)` — `null` meaning Off — which persists via the store and returns the resulting list. | ✅ | 2026-09-01 |
+| TASK-005 | Create `test/features/reminders/match_reminder_test.dart`: JSON round-trip, `notifyAtUtc` math for the 15-minute default, `isExpired` true/false cases. | ✅ | 2026-09-01 |
+| TASK-006 | Create `test/features/reminders/reminder_store_test.dart` using `SharedPreferences.setMockInitialValues({})`: upsert inserts and replaces by `fixtureId`, remove deletes, removeExpired keeps only future kick-offs, load returns empty list on fresh storage. | ✅ | 2026-09-01 |
 
 ### Implementation Phase 2
 
@@ -82,9 +82,9 @@ existing `GoalNotificationService`.
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-007 | Create `lib/features/reminders/reminder_notification_service.dart`: `ReminderNotificationService` with an optional injectable `FlutterLocalNotificationsPlugin` (per PAT-002). `ensureReady()` calls `tz.initializeTimeZones()` once, resolves the device IANA name via `flutter_timezone`'s `FlutterTimezone.getLocalTimezone()` with a `UTC` fallback, sets `tz.setLocalLocation`, then reuses the plugin-initialise/permission-request structure from `GoalNotificationService.ensureReady()`. `schedule(MatchReminder reminder)` computes `final scheduled = tz.TZDateTime.from(reminder.notifyAtUtc, tz.local);` skips (no-op) when `scheduled.isBefore(DateTime.now())`, and otherwise calls `zonedSchedule` with id derived from `reminder.fixtureId` (e.g. `100000 + fixtureId`), a dedicated Android channel `match_reminders` ("Match reminders") with `Importance.high`/`Priority.high`, title `'{homeName} vs {awayName}'`, body `'Kick-off in {leadMinutes} minutes'`, and `AndroidScheduleMode.inexactAllowWhileIdle`. `cancel(int fixtureId)` cancels the same derived id. | | |
-| TASK-008 | In `android/app/src/main/AndroidManifest.xml`, add `<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>` next to the existing `POST_NOTIFICATIONS` permission so the plugin's boot receiver can re-register pending reminders after reboot. | | |
-| TASK-009 | Create `test/features/reminders/reminder_notification_service_test.dart` with a mocked/fake plugin: verifies `schedule()` is called once with the correct derived id, is not called for a kick-off already in the past, and `cancel()` targets the derived id. | | |
+| TASK-007 | Create `lib/features/reminders/reminder_notification_service.dart`: `ReminderNotificationService` with an optional injectable `FlutterLocalNotificationsPlugin` (per PAT-002). `ensureReady()` calls `tz.initializeTimeZones()` once, resolves the device IANA name via `flutter_timezone`'s `FlutterTimezone.getLocalTimezone()` with a `UTC` fallback, sets `tz.setLocalLocation`, then reuses the plugin-initialise/permission-request structure from `GoalNotificationService.ensureReady()`. `schedule(MatchReminder reminder)` computes `final scheduled = tz.TZDateTime.from(reminder.notifyAtUtc, tz.local);` skips (no-op) when `scheduled.isBefore(DateTime.now())`, and otherwise calls `zonedSchedule` with id derived from `reminder.fixtureId` (e.g. `100000 + fixtureId`), a dedicated Android channel `match_reminders` ("Match reminders") with `Importance.high`/`Priority.high`, title `'{homeName} vs {awayName}'`, body `'Kick-off in {leadMinutes} minutes'`, and `AndroidScheduleMode.inexactAllowWhileIdle`. `cancel(int fixtureId)` cancels the same derived id. | ✅ | 2026-09-01 |
+| TASK-008 | In `android/app/src/main/AndroidManifest.xml`, add `<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>` next to the existing `POST_NOTIFICATIONS` permission so the plugin's boot receiver can re-register pending reminders after reboot. | ✅ | 2026-09-01 |
+| TASK-009 | Create `test/features/reminders/reminder_notification_service_test.dart` with a mocked/fake plugin: verifies `schedule()` is called once with the correct derived id, is not called for a kick-off already in the past, and `cancel()` targets the derived id. | ✅ | 2026-09-01 |
 
 
 ### Implementation Phase 3
@@ -94,11 +94,11 @@ existing `GoalNotificationService`.
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-010 | Extend `lib/features/fixtures/widgets/fixture_tile.dart`: add `final VoidCallback? onDoubleTap;` to `FixtureTile` and pass it to the existing `InkWell` as `onDoubleTap:`. No other behavioural change; all existing callers remain valid. | | |
-| TASK-011 | Create `lib/features/reminders/reminder_sheet.dart`: `Future<void> showReminderSheet(BuildContext context, WidgetRef ref, Fixture fixture)` showing a modal bottom sheet (`showModalBottomSheet`) with the match names and local kick-off time, a `RadioListTile` list built from `['Off', ...MatchReminder.allowedLeadMinutes]`, pre-selecting the stored value or 15 minutes (REQ-002) when none exists, and Save/Cancel buttons. On Save with a lead time: persist via `remindersProvider` and schedule via `ReminderNotificationService`; on Save with "Off": persist removal and call `cancel`. Then pop the sheet and show a `SnackBar` confirming the choice. | | |
-| TASK-012 | Wire `lib/features/fixtures/fixtures_view.dart`: in `_MatchweekSection`, pass `onDoubleTap` to `FixtureTile` for fixtures where `!f.isFinished && !f.isLive && f.dateUtc.isAfter(DateTime.now())` (REQ-006), opening the sheet. | | |
-| TASK-013 | Wire `lib/features/team/team_detail_screen.dart` the same way for the "next fixtures" list (pass a fixture-dependent `onDoubleTap` to `FixtureTile`). | | |
-| TASK-014 | Create `test/features/reminders/reminder_sheet_test.dart`: pump the sheet inside a `ProviderScope` with overridden providers; assert the 15-minute option is pre-selected by default; assert selecting "Off" invokes store removal and `cancel`. | | |
+| TASK-010 | Extend `lib/features/fixtures/widgets/fixture_tile.dart`: add `final VoidCallback? onDoubleTap;` to `FixtureTile` and pass it to the existing `InkWell` as `onDoubleTap:`. No other behavioural change; all existing callers remain valid. | ✅ | 2026-09-01 |
+| TASK-011 | Create `lib/features/reminders/reminder_sheet.dart`: `Future<void> showReminderSheet(BuildContext context, WidgetRef ref, Fixture fixture)` showing a modal bottom sheet (`showModalBottomSheet`) with the match names and local kick-off time, a `RadioListTile` list built from `['Off', ...MatchReminder.allowedLeadMinutes]`, pre-selecting the stored value or 15 minutes (REQ-002) when none exists, and Save/Cancel buttons. On Save with a lead time: persist via `remindersProvider` and schedule via `ReminderNotificationService`; on Save with "Off": persist removal and call `cancel`. Then pop the sheet and show a `SnackBar` confirming the choice. | ✅ | 2026-09-01 |
+| TASK-012 | Wire `lib/features/fixtures/fixtures_view.dart`: in `_MatchweekSection`, pass `onDoubleTap` to `FixtureTile` for fixtures where `!f.isFinished && !f.isLive && f.dateUtc.isAfter(DateTime.now())` (REQ-006), opening the sheet. | ✅ | 2026-09-01 |
+| TASK-013 | Wire `lib/features/team/team_detail_screen.dart` the same way for the "next fixtures" list (pass a fixture-dependent `onDoubleTap` to `FixtureTile`). | ✅ | 2026-09-01 |
+| TASK-014 | Create `test/features/reminders/reminder_sheet_test.dart`: pump the sheet inside a `ProviderScope` with overridden providers; assert the 15-minute option is pre-selected by default; assert selecting "Off" invokes store removal and `cancel`. | ✅ | 2026-09-01 |
 
 ### Implementation Phase 4
 
@@ -107,8 +107,8 @@ existing `GoalNotificationService`.
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-015 | In `showReminderSheet` (TASK-011), call `ensureReady()` before scheduling. If notification permission is denied, still persist the choice but show a SnackBar explaining that reminders will be silent until notifications are enabled in system settings. | | |
-| TASK-016 | On app start in `lib/main.dart` (after `SharedPreferences.getInstance()`), call `ReminderStore(prefs).removeExpired()` so stale reminders are pruned; already-fired past alarms are dropped by the OS anyway. | | |
+| TASK-015 | In `showReminderSheet` (TASK-011), call `ensureReady()` before scheduling. If notification permission is denied, still persist the choice but show a SnackBar explaining that reminders will be silent until notifications are enabled in system settings. | ✅ | 2026-09-01 |
+| TASK-016 | On app start in `lib/main.dart` (after `SharedPreferences.getInstance()`), call `ReminderStore(prefs).removeExpired()` so stale reminders are pruned; already-fired past alarms are dropped by the OS anyway. | ✅ | 2026-09-01 |
 
 ### Implementation Phase 5
 
@@ -116,7 +116,7 @@ existing `GoalNotificationService`.
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-017 | Run `flutter analyze` with zero new warnings and `flutter test` with all tests passing. | | |
+| TASK-017 | Run `flutter analyze` with zero new warnings and `flutter test` with all tests passing. | ✅ | 2026-09-01 |
 | TASK-018 | Manual Android verification: build and run on a device/emulator; double-tap an upcoming fixture; confirm 15-minute default; set a 15-minute reminder on a fixture kicking off within ~20 minutes; background/kill the app; verify the notification fires near the expected time; double-tap again, choose Off, verify no notification arrives; force-stop the app and reboot the device with a reminder still pending to verify boot re-registration. | | |
 
 ## 3. Alternatives

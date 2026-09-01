@@ -4,16 +4,23 @@ import '../../../models/fixture.dart';
 
 /// A single match row: home team, score/kick-off, away team, plus status.
 class FixtureTile extends StatelessWidget {
-  const FixtureTile({super.key, required this.fixture, this.onTap});
+  const FixtureTile({
+    super.key,
+    required this.fixture,
+    this.onTap,
+    this.onDoubleTap,
+  });
 
   final Fixture fixture;
   final VoidCallback? onTap;
+  final VoidCallback? onDoubleTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return InkWell(
       onTap: onTap,
+      onDoubleTap: onDoubleTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Column(

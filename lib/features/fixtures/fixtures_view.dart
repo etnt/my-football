@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/fixture.dart';
 import '../../shared/widgets/api_error_view.dart';
 import '../../shared/widgets/message_view.dart';
+import '../reminders/match_reminder.dart';
+import '../reminders/reminder_sheet.dart';
 import 'fixtures_providers.dart';
 import 'fixtures_repository.dart';
 import 'widgets/fixture_tile.dart';
@@ -99,7 +101,7 @@ class _GroupedFixtureList extends StatelessWidget {
 }
 
 /// A single collapsible matchweek: a tappable header plus its fixtures.
-class _MatchweekSection extends StatelessWidget {
+class _MatchweekSection extends ConsumerWidget {
   const _MatchweekSection({
     required this.group,
     required this.initiallyExpanded,
@@ -109,7 +111,7 @@ class _MatchweekSection extends StatelessWidget {
   final bool initiallyExpanded;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final count = group.matches.length;
@@ -149,7 +151,14 @@ class _MatchweekSection extends StatelessWidget {
                 children: [
                   const Divider(height: 1),
                   for (final f in group.matches) ...[
-                    FixtureTile(fixture: f),
+                    FixtureTile(
+                      fixture: f,
+                      // Only upcoming, not-yet-started matches offer a
+                      // kick-off reminder (REQ-006).
+                      onDoubleTap: MatchReminder.canRemind(f)
+                          ? () => showReminderSheet(context, ref, f)
+                          : null,
+                    ),
                     const Divider(height: 1),
                   ],
                 ],
