@@ -81,7 +81,10 @@ void main() {
       fixtureId: 1,
       kickoffUtc: DateTime.now().toUtc().subtract(const Duration(hours: 2)),
     );
-    final future = _reminder(fixtureId: 2, kickoffUtc: kickoff);
+    final future = _reminder(
+      fixtureId: 2,
+      kickoffUtc: DateTime.now().toUtc().add(const Duration(hours: 2)),
+    );
     await store.upsert(past);
     await store.upsert(future);
 
