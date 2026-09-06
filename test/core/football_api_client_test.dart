@@ -126,6 +126,62 @@ void main() {
     });
   });
 
+  group('FootballApiClient.getCountries', () {
+    const countriesBody = '''
+    {
+      "countries": [
+        {"name_en": "England", "flag_url_32": "e.png"},
+        {"name_en": "Spain", "flag_url_32": "s.png"},
+        {"name_en": "  France  "},
+        {"name_en": ""},
+        {"broken": "entry"}
+      ]
+    }
+    ''';
+
+    test('parses countries, trims them and sorts alphabetically', () async {
+      final adapter = _FakeAdapter(body: countriesBody);
+      final client = _clientWith(adapter);
+
+      final countries = await client.getCountries();
+
+      expect(countries, containsAll(['England', 'Spain', 'France']));
+      expect(countries.indexOf('England'), lessThan(countries.indexOf('Spain')));
+      expect(adapter.lastOptions?.path, '/123/all_countries.php');
+    });
+
+    test('merges in pseudo-countries like Europe so the Champions League '
+        'can be browsed', () async {
+      final client = _clientWith(_FakeAdapter(body: countriesBody));
+
+      final countries = await client.getCountries();
+
+      for (final pseudo in FootballApiClient.pseudoCountries) {
+        expect(countries, contains(pseudo));
+      }
+      expect(countries, contains('Europe'));
+      expect(countries.indexOf('England'), lessThan(countries.indexOf('World')));
+    });
+
+    test('does not duplicate a pseudo-country the server already returned',
+        () async {
+      const body = '{"countries": [{"name_en": "Europe"}, {"name_en": "Spain"}]}';
+      final client = _clientWith(_FakeAdapter(body: body));
+
+      final countries = await client.getCountries();
+
+      expect(countries.where((c) => c.toLowerCase() == 'europe'), hasLength(1));
+    });
+
+    test('still returns pseudo-countries when the list is null', () async {
+      final client = _clientWith(_FakeAdapter(body: '{"countries": null}'));
+
+      final countries = await client.getCountries();
+
+      expect(countries, FootballApiClient.pseudoCountries);
+    });
+  });
+
   group('FootballApiClient.getSeasonEvents', () {
     const eventsBody = '''
     {

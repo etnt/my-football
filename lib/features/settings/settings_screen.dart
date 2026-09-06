@@ -283,7 +283,8 @@ class _FollowedLeaguesSectionState
             style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         const Text(
-          'Pick a country, then tick the leagues you want to follow. They '
+          'Pick a country or region — e.g. Europe for the UEFA Champions '
+          'League — then tick the leagues you want to follow. They appear in '
           'appear in the dropdown at the top of the app. At least one league '
           'must stay followed.',
         ),

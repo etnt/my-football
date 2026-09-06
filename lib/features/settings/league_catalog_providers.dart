@@ -10,9 +10,13 @@ const _catalogTtl = Duration(days: 7);
 
 /// All countries offered by TheSportsDB, cached on device. Falls back to any
 /// cached copy (even if stale) when offline.
+///
+/// Note the `_v2` suffix: v1 caches were written before pseudo-countries
+/// (Europe, World, …) were merged into the list, so a fresh pre-fix cache
+/// would hide them for up to [catalogTtl].
 final countriesProvider = FutureProvider<List<String>>((ref) async {
   final cache = CacheStore(ref.watch(sharedPreferencesProvider));
-  const key = 'catalog_countries';
+  const key = 'catalog_countries_v2';
 
   final cached = cache.readJson(key);
   if (cached != null && cached.isFresh(_catalogTtl)) {

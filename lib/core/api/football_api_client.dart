@@ -57,19 +57,35 @@ class FootballApiClient {
         .toList();
   }
 
+  /// Pseudo-countries used by TheSportsDB for competitions that are not tied
+  /// to a single country (e.g. the UEFA Champions League lives under
+  /// `Europe`). `all_countries.php` only lists real countries, so these are
+  /// merged into [getCountries] to make such leagues selectable. Only
+  /// pseudo-countries that actually contain soccer leagues are listed
+  /// (`search_all_leagues.php` returns nothing for `Africa`, `Asia`, etc.).
+  static const pseudoCountries = ['Europe', 'International', 'World'];
+
   /// All countries with data on TheSportsDB, sorted alphabetically. Works on
-  /// the free key. Used to browse the league catalogue by country.
+  /// the free key. Used to browse the league catalogue by country. The list is
+  /// merged with [pseudoCountries] so continental/international competitions
+  /// (Champions League, World Cup, …) can be browsed too.
   Future<List<String>> getCountries() async {
     final body = await _get('/$_key/all_countries.php');
     final list = body['countries'];
-    if (list is! List) return const [];
-    final names = <String>[];
-    for (final item in list.whereType<Map<String, dynamic>>()) {
-      final name = (item['name_en'] as String?)?.trim();
-      if (name != null && name.isNotEmpty) names.add(name);
+    // Keyed by lowercase name so a pseudo-country already returned by the
+    // server is not duplicated, while preserving the server's casing.
+    final names = <String, String>{};
+    void add(String name) => names.putIfAbsent(name.toLowerCase(), () => name);
+    if (list is List) {
+      for (final item in list.whereType<Map<String, dynamic>>()) {
+        final name = (item['name_en'] as String?)?.trim();
+        if (name != null && name.isNotEmpty) add(name);
+      }
     }
-    names.sort();
-    return names;
+    for (final pseudo in pseudoCountries) {
+      add(pseudo);
+    }
+    return names.values.toList()..sort();
   }
 
   /// Soccer leagues within [country]. Works on the free key.
