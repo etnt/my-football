@@ -11,12 +11,14 @@ const _catalogTtl = Duration(days: 7);
 /// All countries offered by TheSportsDB, cached on device. Falls back to any
 /// cached copy (even if stale) when offline.
 ///
-/// Note the `_v2` suffix: v1 caches were written before pseudo-countries
-/// (Europe, World, …) were merged into the list, so a fresh pre-fix cache
-/// would hide them for up to [catalogTtl].
+/// Note the `_v3` suffix: v2 (and older) caches could have been written while
+/// the free key was active — the free key caps `all_countries.php` at 50
+/// countries, so England and friends were simply absent. Bumping the key
+/// ignores those stale entries immediately on app update; `CacheStore
+/// .clearAll()` additionally wipes catalogue caches on every API-key change.
 final countriesProvider = FutureProvider<List<String>>((ref) async {
   final cache = CacheStore(ref.watch(sharedPreferencesProvider));
-  const key = 'catalog_countries_v2';
+  const key = 'catalog_countries_v3';
 
   final cached = cache.readJson(key);
   if (cached != null && cached.isFresh(_catalogTtl)) {
@@ -34,10 +36,14 @@ final countriesProvider = FutureProvider<List<String>>((ref) async {
 });
 
 /// Soccer leagues within a given country, cached on device.
+///
+/// Key carries a `_v2` suffix for the same reason as `catalog_countries_v3`:
+/// free-key responses are capped (5 leagues) and must not bleed into a
+/// Premium session.
 final leaguesByCountryProvider =
     FutureProvider.family<List<League>, String>((ref, country) async {
   final cache = CacheStore(ref.watch(sharedPreferencesProvider));
-  final key = 'catalog_leagues_$country';
+  final key = 'catalog_leagues_v2_$country';
 
   List<League> decode(Object? data) => ((data as List?) ?? const [])
       .map((e) => League.fromJson(e as Map<String, dynamic>))

@@ -43,12 +43,18 @@ class CacheStore {
     }
   }
 
-  /// Prefixes of every cache key written by the app's repositories.
+  /// Prefixes of every cache key written by the app's repositories. This must
+  /// include the Settings catalogue keys (`catalog_countries_*`,
+  /// `catalog_leagues_*`): the free key caps list endpoints (countries to 50,
+  /// league searches to 5), so a catalogue cached on the free key must never
+  /// survive a switch to Premium.
   static const _cachePrefixes = [
     'standings_',
     'season_events_',
     'team_events_',
     'stats_',
+    'catalog_countries_',
+    'catalog_leagues_',
   ];
 
   /// Drops all cached API responses. Called when the API key changes so free
