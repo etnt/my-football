@@ -350,5 +350,49 @@ void main() {
       expect(adapter.lastOptions?.queryParameters['id'], 133604);
     });
   });
-}
 
+  group('FootballApiClient.searchPlayers', () {
+    const playersBody = '''
+    {
+      "player": [
+        {
+          "idPlayer": "34146370",
+          "strPlayer": "Erling Haaland",
+          "strTeam": "Manchester City",
+          "strSport": "Soccer",
+          "strPosition": "Forward",
+          "strNationality": "Norway",
+          "dateBorn": "2000-07-21",
+          "strThumb": "haaland.png"
+        },
+        {
+          "idPlayer": "",
+          "strPlayer": ""
+        }
+      ]
+    }
+    ''';
+
+    test('parses player profiles and hits searchplayers.php', () async {
+      final adapter = _FakeAdapter(body: playersBody);
+      final client = _clientWith(adapter, apiKey: 'premium123');
+
+      final players = await client.searchPlayers('Erling Haaland');
+
+      expect(players, hasLength(1));
+      expect(players.single.name, 'Erling Haaland');
+      expect(players.single.team, 'Manchester City');
+      expect(players.single.position, 'Forward');
+      expect(adapter.lastOptions?.path, '/premium123/searchplayers.php');
+      expect(adapter.lastOptions?.queryParameters['p'], 'Erling Haaland');
+    });
+
+    test('returns empty list when player is missing', () async {
+      final client = _clientWith(_FakeAdapter(body: '{"player": null}'));
+
+      final players = await client.searchPlayers('Someone');
+
+      expect(players, isEmpty);
+    });
+  });
+}

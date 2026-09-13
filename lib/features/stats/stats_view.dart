@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/widgets/api_error_view.dart';
 import '../../shared/widgets/message_view.dart';
+import 'player_detail_sheet.dart';
 import 'player_stats.dart';
+import 'player_stats_repository.dart';
 import 'stats_providers.dart';
 
 /// The stats body: a Scorers/Assists/Cards toggle plus a ranked leaderboard
@@ -15,6 +17,7 @@ class StatsView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final board = ref.watch(statsBoardProvider);
     final stats = ref.watch(statsControllerProvider);
+    final repo = ref.watch(playerStatsRepositoryProvider);
 
     if (stats.phase == StatsPhase.premiumRequired) {
       return const MessageView(
@@ -64,11 +67,22 @@ class StatsView extends ConsumerWidget {
                 ref.read(statsBoardProvider.notifier).state = selection.first,
           ),
         ),
+        if (repo != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: Text(
+              'Tap a player for details.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
         if (stats.isBuilding) _BuildProgress(stats: stats),
         const Divider(height: 1),
         Expanded(
           child: RefreshIndicator(
-            onRefresh: () => ref.read(statsControllerProvider.notifier).refresh(),
+            onRefresh: () =>
+                ref.read(statsControllerProvider.notifier).refresh(),
             child: lines.isEmpty
                 ? ListView(
                     children: [
@@ -85,7 +99,7 @@ class StatsView extends ConsumerWidget {
                       ),
                     ],
                   )
-                : _LeaderboardList(lines: lines, board: board),
+                : _LeaderboardList(lines: lines, board: board, repo: repo),
           ),
         ),
       ],
@@ -129,10 +143,15 @@ class _BuildProgress extends StatelessWidget {
 }
 
 class _LeaderboardList extends StatelessWidget {
-  const _LeaderboardList({required this.lines, required this.board});
+  const _LeaderboardList({
+    required this.lines,
+    required this.board,
+    required this.repo,
+  });
 
   final List<StatLine> lines;
   final StatsBoard board;
+  final PlayerStatsRepository? repo;
 
   @override
   Widget build(BuildContext context) {
@@ -145,11 +164,16 @@ class _LeaderboardList extends StatelessWidget {
       itemBuilder: (context, i) {
         final line = lines[i];
         final rank = i + 1;
+        void openDetails() {
+          if (repo == null) return;
+          showPlayerDetailSheet(context, repo!, line);
+        }
         final parts = <String>[
           if (line.team != null && line.team!.isNotEmpty) line.team!,
           if (board == StatsBoard.scorers && line.penalties > 0)
             '${line.penalties} pen',
-          if (board == StatsBoard.cards && line.yellows > 0) '${line.yellows} 🟨',
+          if (board == StatsBoard.cards && line.yellows > 0)
+            '${line.yellows} 🟨',
           if (board == StatsBoard.cards && line.reds > 0) '${line.reds} 🟥',
         ];
         final subtitle = parts.isEmpty ? null : parts.join(' · ');
@@ -175,6 +199,7 @@ class _LeaderboardList extends StatelessWidget {
               color: scheme.primary,
             ),
           ),
+          onTap: repo == null ? null : openDetails,
         );
       },
     );
