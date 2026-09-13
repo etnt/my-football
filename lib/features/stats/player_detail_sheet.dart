@@ -159,39 +159,32 @@ class _PlayerAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final safeImageUrl = _safeNetworkUrl(imageUrl);
-    if (safeImageUrl == null) {
-      return Semantics(
-        label: 'Player portrait',
-        image: true,
-        child: ExcludeSemantics(
-          child: CircleAvatar(
-            radius: 44,
-            backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-            child: const Icon(Icons.person_outline, size: 40),
-          ),
-        ),
-      );
-    }
-    return Semantics(
-      label: 'Player portrait',
-      image: true,
-      child: ExcludeSemantics(
-        child: ClipOval(
-          child: Image.network(
-            safeImageUrl,
-            width: 88,
-            height: 88,
-            fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => CircleAvatar(
-              radius: 44,
-              backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-              child: const Icon(Icons.person_outline, size: 40),
-            ),
-          ),
-        ),
+    if (safeImageUrl == null) return _placeholderAvatar(context);
+    return ClipOval(
+      child: Image.network(
+        safeImageUrl,
+        width: 88,
+        height: 88,
+        fit: BoxFit.cover,
+        semanticLabel: 'Player portrait',
+        errorBuilder: (_, _, _) => _placeholderAvatar(context),
       ),
     );
   }
+}
+
+Widget _placeholderAvatar(BuildContext context) {
+  return Semantics(
+    label: 'Player portrait',
+    image: true,
+    child: ExcludeSemantics(
+      child: CircleAvatar(
+        radius: 44,
+        backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+        child: const Icon(Icons.person_outline, size: 40),
+      ),
+    ),
+  );
 }
 
 String? _safeNetworkUrl(String value) {
