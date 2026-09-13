@@ -280,7 +280,7 @@ void main() {
     expect(player, isNull);
   });
 
-  test('matches accented player and team names', () async {
+  test('matches accented player and team names accent-insensitively', () async {
     v1Adapter = _RoutingAdapter((path) {
       if (path.contains('eventsseason.php')) return _seasonEvents;
       return '''
@@ -294,7 +294,7 @@ void main() {
     final repo = buildRepo(_RoutingAdapter(timelineFor));
 
     final player = await repo.lookupPlayer(
-      const StatLine('Kylian Mbappé', 1, team: 'París SG'),
+      const StatLine('Kylian Mbappe', 1, team: 'Paris SG'),
     );
 
     expect(player, isNotNull);

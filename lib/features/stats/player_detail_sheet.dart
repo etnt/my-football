@@ -70,7 +70,8 @@ class _PlayerDetailSheetState extends State<_PlayerDetailSheet> {
               return _PlayerSheetStatus(
                 child: _PlayerSheetMessage(
                   icon: Icons.person_search_outlined,
-                  text: 'No player profile was found for ${widget.line.player}.',
+                  title: widget.line.player,
+                  text: 'No player profile was found.',
                 ),
               );
             }
@@ -196,7 +197,7 @@ class _PlayerAvatar extends StatelessWidget {
 String? _safeNetworkUrl(String value) {
   final uri = Uri.tryParse(value);
   if (uri == null) return null;
-  if (uri.scheme == 'https' || uri.scheme == 'http') return value;
+  if (uri.scheme == 'https') return value;
   return null;
 }
 
@@ -219,11 +220,13 @@ class _PlayerSheetMessage extends StatelessWidget {
   const _PlayerSheetMessage({
     required this.icon,
     required this.text,
+    this.title,
     this.action,
   });
 
   final IconData icon;
   final String text;
+  final String? title;
   final Widget? action;
 
   @override
@@ -235,6 +238,14 @@ class _PlayerSheetMessage extends StatelessWidget {
         children: [
           Icon(icon, size: 36, color: Theme.of(context).colorScheme.outline),
           const SizedBox(height: 10),
+          if (title != null) ...[
+            Text(
+              title!,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 6),
+          ],
           Text(text, textAlign: TextAlign.center),
           if (action != null) ...[const SizedBox(height: 8), action!],
         ],
