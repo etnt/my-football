@@ -326,28 +326,29 @@ class PlayerStatsRepository {
         .where((p) => _normalize(p.sport) == 'soccer')
         .toList();
     final candidates = soccer.isNotEmpty ? soccer : players;
-    candidates.sort((a, b) {
-      final byScore = _scorePlayer(
-        b,
-        normalizedPlayer: normalizedPlayer,
-        normalizedTeam: normalizedTeam,
-      ).compareTo(
-        _scorePlayer(
-          a,
-          normalizedPlayer: normalizedPlayer,
-          normalizedTeam: normalizedTeam,
-        ),
-      );
+    final ranked = candidates
+        .map(
+          (candidate) => (
+            player: candidate,
+            score: _scorePlayer(
+              candidate,
+              normalizedPlayer: normalizedPlayer,
+              normalizedTeam: normalizedTeam,
+            ),
+            teamRank: _teamRank(candidate.team, normalizedTeam),
+          ),
+        )
+        .toList();
+    ranked.sort((a, b) {
+      final byScore = b.score.compareTo(a.score);
       if (byScore != 0) return byScore;
-      final byTeam = _teamRank(b.team, normalizedTeam).compareTo(
-        _teamRank(a.team, normalizedTeam),
-      );
+      final byTeam = b.teamRank.compareTo(a.teamRank);
       if (byTeam != 0) return byTeam;
-      final byId = b.id.compareTo(a.id);
+      final byId = b.player.id.compareTo(a.player.id);
       if (byId != 0) return byId;
-      return a.name.compareTo(b.name);
+      return a.player.name.compareTo(b.player.name);
     });
-    return candidates.first;
+    return ranked.first.player;
   }
 
   int _scorePlayer(

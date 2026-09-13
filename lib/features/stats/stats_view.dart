@@ -204,7 +204,7 @@ class _LeaderboardList extends StatelessWidget {
               ),
               if (repo != null)
                 IconButton(
-                  tooltip: 'Player details',
+                  tooltip: 'Player details for ${line.player}',
                   onPressed: openDetails,
                   icon: const Icon(Icons.info_outline),
                   visualDensity: VisualDensity.compact,
