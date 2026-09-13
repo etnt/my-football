@@ -218,7 +218,6 @@ class _LeaderboardList extends StatelessWidget {
             ],
           ),
           onTap: repo == null ? null : openDetails,
-          onLongPress: repo == null ? null : openDetails,
         );
       },
     );

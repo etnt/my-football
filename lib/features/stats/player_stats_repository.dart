@@ -393,6 +393,6 @@ class PlayerStatsRepository {
 
   String _normalize(String value) => value
       .toLowerCase()
-      .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+      .replaceAll(RegExp(r'[^\p{L}\p{N}]+', unicode: true), ' ')
       .trim();
 }

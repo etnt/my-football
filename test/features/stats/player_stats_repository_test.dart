@@ -279,4 +279,25 @@ void main() {
 
     expect(player, isNull);
   });
+
+  test('matches accented player and team names', () async {
+    v1Adapter = _RoutingAdapter((path) {
+      if (path.contains('eventsseason.php')) return _seasonEvents;
+      return '''
+      {
+        "player": [
+          {"idPlayer": "10", "strPlayer": "Kylian Mbappé", "strTeam": "París SG", "strSport": "Soccer"}
+        ]
+      }
+      ''';
+    });
+    final repo = buildRepo(_RoutingAdapter(timelineFor));
+
+    final player = await repo.lookupPlayer(
+      const StatLine('Kylian Mbappé', 1, team: 'París SG'),
+    );
+
+    expect(player, isNotNull);
+    expect(player!.name, 'Kylian Mbappé');
+  });
 }
