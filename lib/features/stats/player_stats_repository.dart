@@ -350,7 +350,17 @@ class PlayerStatsRepository {
       return a.player.name.compareTo(b.player.name);
     });
     final best = ranked.first;
-    return _nameMatches(best.player.name, normalizedPlayer) ? best.player : null;
+    final exactNameMatches = ranked
+        .where((candidate) => _nameMatches(candidate.player.name, normalizedPlayer))
+        .length;
+    if (!_nameMatches(best.player.name, normalizedPlayer)) return null;
+    if (normalizedTeam.isNotEmpty &&
+        exactNameMatches > 1 &&
+        best.teamRank < 2 &&
+        best.player.team.isNotEmpty) {
+      return null;
+    }
+    return best.player;
   }
 
   int _scorePlayer(

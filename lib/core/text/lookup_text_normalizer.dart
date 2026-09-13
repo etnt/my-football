@@ -1,6 +1,7 @@
 String normalizeLookupText(String value) => _foldDiacritics(value.toLowerCase())
     .replaceAll(RegExp(r'[\u0300-\u036f]+', unicode: true), '')
     .replaceAll(RegExp(r'[^\p{L}\p{N}]+', unicode: true), ' ')
+    .replaceAll(RegExp(r'\s+'), ' ')
     .trim();
 
 String _foldDiacritics(String value) {

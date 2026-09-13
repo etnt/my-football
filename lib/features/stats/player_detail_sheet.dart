@@ -14,6 +14,7 @@ Future<void> showPlayerDetailSheet(
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
+    barrierLabel: 'Dismiss player details',
     routeSettings: const RouteSettings(name: 'player-details'),
     builder: (_) => _PlayerDetailSheet(repo: repo, line: line),
   );
