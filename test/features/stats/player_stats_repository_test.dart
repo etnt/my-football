@@ -226,7 +226,8 @@ void main() {
       () async {
     final repo = buildRepo(_RoutingAdapter(timelineFor));
     await cache.writeJson(
-      'stats_player_erling_haaland_manchester_city',
+      'stats_player_erling_haaland_Erling%20Haaland_'
+      'manchester_city_Manchester%20City',
       {'idPlayer': ''},
     );
 

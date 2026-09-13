@@ -373,7 +373,12 @@ class PlayerStatsRepository {
     return score;
   }
 
-  String _cachePart(String value) => _normalize(value).replaceAll(' ', '_');
+  String _cachePart(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return '_';
+    final normalized = _normalize(trimmed).replaceAll(' ', '_');
+    return '${normalized}_${Uri.encodeComponent(trimmed)}';
+  }
 
   int _teamRank(String team, String normalizedTeam) {
     final normalized = _normalize(team);

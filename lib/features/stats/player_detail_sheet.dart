@@ -197,7 +197,9 @@ class _PlayerAvatar extends StatelessWidget {
 String? _safeNetworkUrl(String value) {
   final uri = Uri.tryParse(value);
   if (uri == null) return null;
-  if (uri.scheme == 'https') return value;
+  if (uri.scheme == 'https' && uri.host.isNotEmpty && uri.isAbsolute) {
+    return value;
+  }
   return null;
 }
 
