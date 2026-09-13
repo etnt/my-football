@@ -203,7 +203,6 @@ String? _safeNetworkUrl(String value) {
       host == 'thesportsdb.com' || host.endsWith('.thesportsdb.com');
   if (!allowedHost) return null;
   if (uri.scheme == 'https') return normalized;
-  if (uri.scheme == 'http') return uri.replace(scheme: 'https').toString();
   return null;
 }
 
