@@ -1,12 +1,13 @@
 import 'package:unorm_dart/unorm_dart.dart' as unorm;
 
-String normalizeLookupText(String value) => _foldDiacritics(value.toLowerCase())
-    .replaceAll(RegExp(r'[\u0300-\u036f]+', unicode: true), '')
+final _combiningMarks = RegExp(r'[\u0300-\u036f]+', unicode: true);
+
+String normalizeLookupText(String value) => _foldSpecialCases(
+      unorm.nfd(value).replaceAll(_combiningMarks, '').toLowerCase(),
+    )
     .replaceAll(RegExp(r'[^\p{L}\p{N}]+', unicode: true), ' ')
     .replaceAll(RegExp(r'\s+'), ' ')
     .trim();
-
-String _foldDiacritics(String value) => _foldSpecialCases(unorm.nfd(value));
 
 String _foldSpecialCases(String value) {
   final buffer = StringBuffer();
