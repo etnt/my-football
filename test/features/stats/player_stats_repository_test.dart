@@ -221,4 +221,21 @@ void main() {
     expect(second!.id, first.id);
     expect(v1Adapter.calls, v1Calls);
   });
+
+  test('ignores malformed cached player data and fetches a fresh profile',
+      () async {
+    final repo = buildRepo(_RoutingAdapter(timelineFor));
+    await cache.writeJson(
+      'stats_player_erling_haaland_manchester_city',
+      {'idPlayer': ''},
+    );
+
+    final player = await repo.lookupPlayer(
+      const StatLine('Erling Haaland', 3, team: 'Manchester City'),
+    );
+
+    expect(player, isNotNull);
+    expect(player!.team, 'Manchester City');
+    expect(v1Adapter.calls, 1);
+  });
 }

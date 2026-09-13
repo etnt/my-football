@@ -158,10 +158,14 @@ class _PlayerAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (imageUrl.isEmpty) {
-      return CircleAvatar(
-        radius: 44,
-        backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-        child: const Icon(Icons.person_outline, size: 40),
+      return Semantics(
+        label: 'Player image unavailable',
+        image: true,
+        child: CircleAvatar(
+          radius: 44,
+          backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+          child: const Icon(Icons.person_outline, size: 40),
+        ),
       );
     }
     return ClipOval(
@@ -170,10 +174,15 @@ class _PlayerAvatar extends StatelessWidget {
         width: 88,
         height: 88,
         fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => CircleAvatar(
-          radius: 44,
-          backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-          child: const Icon(Icons.person_outline, size: 40),
+        semanticLabel: 'Player image',
+        errorBuilder: (_, _, _) => Semantics(
+          label: 'Player image unavailable',
+          image: true,
+          child: CircleAvatar(
+            radius: 44,
+            backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+            child: const Icon(Icons.person_outline, size: 40),
+          ),
         ),
       ),
     );

@@ -146,10 +146,9 @@ class PlayerStatsRepository {
     final team = line.team?.trim() ?? '';
     final key = 'stats_player_${_cachePart(player)}_${_cachePart(team)}';
     final cached = cache.readJson(key);
-    if (cached != null &&
-        cached.isFresh(_playerTtl) &&
-        cached.data is Map<String, dynamic>) {
-      return PlayerDetails.fromJson(cached.data as Map<String, dynamic>);
+    final cachedPlayer = _decodePlayer(cached?.data);
+    if (cached != null && cached.isFresh(_playerTtl) && cachedPlayer != null) {
+      return cachedPlayer;
     }
 
     try {
@@ -160,9 +159,7 @@ class PlayerStatsRepository {
       }
       return best;
     } catch (_) {
-      if (cached != null && cached.data is Map<String, dynamic>) {
-        return PlayerDetails.fromJson(cached.data as Map<String, dynamic>);
-      }
+      if (cachedPlayer != null) return cachedPlayer;
       rethrow;
     }
   }
@@ -295,6 +292,15 @@ class PlayerStatsRepository {
         .whereType<Map<String, dynamic>>()
         .map(Fixture.fromJson)
         .toList();
+  }
+
+  PlayerDetails? _decodePlayer(Object? data) {
+    if (data is! Map<String, dynamic>) return null;
+    try {
+      return PlayerDetails.fromJson(data);
+    } catch (_) {
+      return null;
+    }
   }
 
   PlayerDetails? _bestPlayerMatch(
