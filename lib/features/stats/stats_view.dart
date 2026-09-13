@@ -71,7 +71,7 @@ class StatsView extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
             child: Text(
-              'Double-tap a player for details.',
+              'Use the info button for player details.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),

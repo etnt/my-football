@@ -339,6 +339,12 @@ class PlayerStatsRepository {
         ),
       );
       if (byScore != 0) return byScore;
+      final byTeam = _teamRank(b.team, normalizedTeam).compareTo(
+        _teamRank(a.team, normalizedTeam),
+      );
+      if (byTeam != 0) return byTeam;
+      final byId = b.id.compareTo(a.id);
+      if (byId != 0) return byId;
       return a.name.compareTo(b.name);
     });
     return candidates.first;
@@ -366,6 +372,18 @@ class PlayerStatsRepository {
   }
 
   String _cachePart(String value) => _normalize(value).replaceAll(' ', '_');
+
+  int _teamRank(String team, String normalizedTeam) {
+    final normalized = _normalize(team);
+    if (normalizedTeam.isEmpty) return normalized.isEmpty ? 0 : 1;
+    if (normalized == normalizedTeam) return 3;
+    if (normalized.isNotEmpty &&
+        (normalized.contains(normalizedTeam) ||
+            normalizedTeam.contains(normalized))) {
+      return 2;
+    }
+    return normalized.isEmpty ? 0 : 1;
+  }
 
   String _normalize(String value) => value
       .toLowerCase()
