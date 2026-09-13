@@ -388,12 +388,7 @@ class PlayerStatsRepository {
   }
 
   bool _nameMatches(String candidate, String normalizedPlayer) {
-    final normalized = _normalize(candidate);
-    return normalized == normalizedPlayer ||
-        (normalized.isNotEmpty &&
-            normalizedPlayer.isNotEmpty &&
-            (normalized.contains(normalizedPlayer) ||
-                normalizedPlayer.contains(normalized)));
+    return _normalize(candidate) == normalizedPlayer;
   }
 
   String _normalize(String value) => value
