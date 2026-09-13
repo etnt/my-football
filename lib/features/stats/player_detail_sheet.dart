@@ -188,10 +188,11 @@ Widget _placeholderAvatar(BuildContext context) {
 }
 
 String? _safeNetworkUrl(String value) {
-  final uri = Uri.tryParse(value);
+  final normalized = value.startsWith('//') ? 'https:$value' : value;
+  final uri = Uri.tryParse(normalized);
   if (uri == null) return null;
   if (uri.scheme == 'https' && uri.host.isNotEmpty && uri.isAbsolute) {
-    return value;
+    return normalized;
   }
   return null;
 }
