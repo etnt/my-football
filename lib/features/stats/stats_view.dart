@@ -164,6 +164,10 @@ class _LeaderboardList extends StatelessWidget {
       itemBuilder: (context, i) {
         final line = lines[i];
         final rank = i + 1;
+        void openDetails() {
+          if (repo == null) return;
+          showPlayerDetailSheet(context, repo!, line);
+        }
         final parts = <String>[
           if (line.team != null && line.team!.isNotEmpty) line.team!,
           if (board == StatsBoard.scorers && line.penalties > 0)
@@ -175,9 +179,7 @@ class _LeaderboardList extends StatelessWidget {
         final subtitle = parts.isEmpty ? null : parts.join(' · ');
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onDoubleTap: repo == null
-              ? null
-              : () => showPlayerDetailSheet(context, repo, line),
+          onDoubleTap: repo == null ? null : openDetails,
           child: ListTile(
             leading: CircleAvatar(
               backgroundColor: scheme.secondaryContainer,
@@ -193,13 +195,26 @@ class _LeaderboardList extends StatelessWidget {
                       color: scheme.onSurfaceVariant,
                     ),
                   ),
-            trailing: Text(
-              '${line.value}',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: scheme.primary,
-              ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${line.value}',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: scheme.primary,
+                  ),
+                ),
+                if (repo != null)
+                  IconButton(
+                    tooltip: 'Player details',
+                    onPressed: openDetails,
+                    icon: const Icon(Icons.info_outline),
+                    visualDensity: VisualDensity.compact,
+                  ),
+              ],
             ),
+            onLongPress: repo == null ? null : openDetails,
           ),
         );
       },

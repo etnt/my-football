@@ -65,6 +65,7 @@ class PlayerStatsRepository {
 
   /// Player profiles change rarely enough to cache them for a week.
   static const _playerTtl = Duration(days: 7);
+  static const _missingPlayer = {'missing': true};
 
   /// How many rows to keep on each board.
   static const _topN = 40;
@@ -147,8 +148,12 @@ class PlayerStatsRepository {
     final key = 'stats_player_${_cachePart(player)}_${_cachePart(team)}';
     final cached = cache.readJson(key);
     final cachedPlayer = _decodePlayer(cached?.data);
+    final cachedMissing = _isMissingPlayer(cached?.data);
     if (cached != null && cached.isFresh(_playerTtl) && cachedPlayer != null) {
       return cachedPlayer;
+    }
+    if (cached != null && cached.isFresh(_playerTtl) && cachedMissing) {
+      return null;
     }
 
     try {
@@ -156,10 +161,13 @@ class PlayerStatsRepository {
       final best = _bestPlayerMatch(players, player: player, team: team);
       if (best != null) {
         await cache.writeJson(key, best.toJson());
+      } else {
+        await cache.writeJson(key, _missingPlayer);
       }
       return best;
     } catch (_) {
       if (cachedPlayer != null) return cachedPlayer;
+      if (cachedMissing) return null;
       rethrow;
     }
   }
@@ -302,6 +310,9 @@ class PlayerStatsRepository {
       return null;
     }
   }
+
+  bool _isMissingPlayer(Object? data) =>
+      data is Map<String, dynamic> && data['missing'] == true;
 
   PlayerDetails? _bestPlayerMatch(
     List<PlayerDetails> players, {

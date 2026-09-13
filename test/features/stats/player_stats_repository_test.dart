@@ -238,4 +238,24 @@ void main() {
     expect(player!.team, 'Manchester City');
     expect(v1Adapter.calls, 1);
   });
+
+  test('caches player misses so repeated lookups do not refetch', () async {
+    v1Adapter = _RoutingAdapter((path) {
+      if (path.contains('eventsseason.php')) return _seasonEvents;
+      return '{"player": []}';
+    });
+    final repo = buildRepo(_RoutingAdapter(timelineFor));
+
+    final first = await repo.lookupPlayer(
+      const StatLine('Unknown Player', 1, team: 'Manchester City'),
+    );
+    final v1Calls = v1Adapter.calls;
+    final second = await repo.lookupPlayer(
+      const StatLine('Unknown Player', 1, team: 'Manchester City'),
+    );
+
+    expect(first, isNull);
+    expect(second, isNull);
+    expect(v1Adapter.calls, v1Calls);
+  });
 }
