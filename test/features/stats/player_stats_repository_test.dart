@@ -258,4 +258,25 @@ void main() {
     expect(second, isNull);
     expect(v1Adapter.calls, v1Calls);
   });
+
+  test('rejects unrelated search results instead of picking the first match',
+      () async {
+    v1Adapter = _RoutingAdapter((path) {
+      if (path.contains('eventsseason.php')) return _seasonEvents;
+      return '''
+      {
+        "player": [
+          {"idPlayer": "9", "strPlayer": "John Smith", "strTeam": "Elsewhere", "strSport": "Soccer"}
+        ]
+      }
+      ''';
+    });
+    final repo = buildRepo(_RoutingAdapter(timelineFor));
+
+    final player = await repo.lookupPlayer(
+      const StatLine('Erling Haaland', 1, team: 'Manchester City'),
+    );
+
+    expect(player, isNull);
+  });
 }

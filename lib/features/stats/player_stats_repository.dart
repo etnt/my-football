@@ -348,7 +348,8 @@ class PlayerStatsRepository {
       if (byId != 0) return byId;
       return a.player.name.compareTo(b.player.name);
     });
-    return ranked.first.player;
+    final best = ranked.first.player;
+    return _nameMatches(best.name, normalizedPlayer) ? best : null;
   }
 
   int _scorePlayer(
@@ -384,6 +385,15 @@ class PlayerStatsRepository {
       return 2;
     }
     return normalized.isEmpty ? 0 : 1;
+  }
+
+  bool _nameMatches(String candidate, String normalizedPlayer) {
+    final normalized = _normalize(candidate);
+    return normalized == normalizedPlayer ||
+        (normalized.isNotEmpty &&
+            normalizedPlayer.isNotEmpty &&
+            (normalized.contains(normalizedPlayer) ||
+                normalizedPlayer.contains(normalized)));
   }
 
   String _normalize(String value) => value
