@@ -70,6 +70,11 @@ class PlayerDetails {
         'strDescriptionEN': description,
       };
 
-  factory PlayerDetails.fromJson(Map<String, dynamic> json) =>
-      PlayerDetails.fromApiJson(json)!;
+  factory PlayerDetails.fromJson(Map<String, dynamic> json) {
+    final player = PlayerDetails.fromApiJson(json);
+    if (player == null) {
+      throw const FormatException('Invalid player details payload.');
+    }
+    return player;
+  }
 }

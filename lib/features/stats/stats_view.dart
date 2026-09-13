@@ -192,29 +192,30 @@ class _LeaderboardList extends StatelessWidget {
                     color: scheme.onSurfaceVariant,
                   ),
                 ),
-          trailing: SizedBox(
-            width: 84,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Text(
-                  '${line.value}',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: scheme.primary,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${line.value}',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: scheme.primary,
+                ),
+              ),
+              if (repo != null) ...[
+                const SizedBox(width: 4),
+                IconButton(
+                  tooltip: 'Player details for ${line.player}',
+                  onPressed: openDetails,
+                  icon: const Icon(Icons.info_outline),
+                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 40,
+                    height: 40,
                   ),
                 ),
-                if (repo != null) ...[
-                  const SizedBox(width: 4),
-                  IconButton(
-                    tooltip: 'Player details for ${line.player}',
-                    onPressed: openDetails,
-                    icon: const Icon(Icons.info_outline),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ],
               ],
-            ),
+            ],
           ),
           onTap: repo == null ? null : openDetails,
           onLongPress: repo == null ? null : openDetails,
