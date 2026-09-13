@@ -356,8 +356,7 @@ class PlayerStatsRepository {
     if (!_nameMatches(best.player.name, normalizedPlayer)) return null;
     if (normalizedTeam.isNotEmpty &&
         exactNameMatches > 1 &&
-        best.teamRank < 2 &&
-        best.player.team.isNotEmpty) {
+        best.teamRank < 2) {
       return null;
     }
     return best.player;
