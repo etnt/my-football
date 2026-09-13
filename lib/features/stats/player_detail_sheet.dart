@@ -195,9 +195,9 @@ String? _safeNetworkUrl(String value) {
   final normalized = value.startsWith('//') ? 'https:$value' : value;
   final uri = Uri.tryParse(normalized);
   if (uri == null) return null;
-  if (uri.scheme == 'https' && uri.host.isNotEmpty && uri.isAbsolute) {
-    return normalized;
-  }
+  if (!uri.isAbsolute || uri.host.isEmpty) return null;
+  if (uri.scheme == 'https') return normalized;
+  if (uri.scheme == 'http') return uri.replace(scheme: 'https').toString();
   return null;
 }
 
