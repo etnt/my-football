@@ -157,7 +157,8 @@ class _PlayerAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (imageUrl.isEmpty) {
+    final safeImageUrl = _safeNetworkUrl(imageUrl);
+    if (safeImageUrl == null) {
       return Semantics(
         label: 'Player portrait',
         image: true,
@@ -176,7 +177,7 @@ class _PlayerAvatar extends StatelessWidget {
       child: ExcludeSemantics(
         child: ClipOval(
           child: Image.network(
-            imageUrl,
+            safeImageUrl,
             width: 88,
             height: 88,
             fit: BoxFit.cover,
@@ -190,6 +191,13 @@ class _PlayerAvatar extends StatelessWidget {
       ),
     );
   }
+}
+
+String? _safeNetworkUrl(String value) {
+  final uri = Uri.tryParse(value);
+  if (uri == null) return null;
+  if (uri.scheme == 'https' || uri.scheme == 'http') return value;
+  return null;
 }
 
 class _PlayerSheetStatus extends StatelessWidget {
