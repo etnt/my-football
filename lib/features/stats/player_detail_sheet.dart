@@ -208,10 +208,12 @@ class _PlayerSheetStatus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 220,
-      width: double.infinity,
-      child: Center(child: child),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      child: SizedBox(
+        width: double.infinity,
+        child: Center(child: child),
+      ),
     );
   }
 }
