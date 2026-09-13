@@ -4,6 +4,7 @@ import '../../models/player_details.dart';
 import 'player_stats.dart';
 import 'player_stats_repository.dart';
 
+/// Opens the player-detail sheet for a Stats leaderboard row.
 Future<void> showPlayerDetailSheet(
   BuildContext context,
   PlayerStatsRepository repo,
@@ -196,6 +197,10 @@ String? _safeNetworkUrl(String value) {
   final uri = Uri.tryParse(normalized);
   if (uri == null) return null;
   if (!uri.isAbsolute || uri.host.isEmpty) return null;
+  final host = uri.host.toLowerCase();
+  final allowedHost =
+      host == 'thesportsdb.com' || host.endsWith('.thesportsdb.com');
+  if (!allowedHost) return null;
   if (uri.scheme == 'https') return normalized;
   if (uri.scheme == 'http') return uri.replace(scheme: 'https').toString();
   return null;
