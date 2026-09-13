@@ -159,29 +159,32 @@ class _PlayerAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     if (imageUrl.isEmpty) {
       return Semantics(
-        label: 'Player image unavailable',
+        label: 'Player portrait',
         image: true,
-        child: CircleAvatar(
-          radius: 44,
-          backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-          child: const Icon(Icons.person_outline, size: 40),
-        ),
-      );
-    }
-    return ClipOval(
-      child: Image.network(
-        imageUrl,
-        width: 88,
-        height: 88,
-        fit: BoxFit.cover,
-        semanticLabel: 'Player image',
-        errorBuilder: (_, _, _) => Semantics(
-          label: 'Player image unavailable',
-          image: true,
+        child: ExcludeSemantics(
           child: CircleAvatar(
             radius: 44,
             backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
             child: const Icon(Icons.person_outline, size: 40),
+          ),
+        ),
+      );
+    }
+    return Semantics(
+      label: 'Player portrait',
+      image: true,
+      child: ExcludeSemantics(
+        child: ClipOval(
+          child: Image.network(
+            imageUrl,
+            width: 88,
+            height: 88,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => CircleAvatar(
+              radius: 44,
+              backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+              child: const Icon(Icons.person_outline, size: 40),
+            ),
           ),
         ),
       ),
