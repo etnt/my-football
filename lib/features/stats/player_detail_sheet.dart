@@ -13,6 +13,7 @@ Future<void> showPlayerDetailSheet(
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
+    routeSettings: const RouteSettings(name: 'player-details'),
     builder: (_) => _PlayerDetailSheet(repo: repo, line: line),
   );
 }
@@ -36,6 +37,11 @@ class _PlayerDetailSheetState extends State<_PlayerDetailSheet> {
     _future = widget.repo.lookupPlayer(widget.line);
   }
 
+  void _retry() {
+    if (!mounted) return;
+    setState(() => _future = widget.repo.lookupPlayer(widget.line));
+  }
+
   @override
   Widget build(BuildContext context) {
     final maxHeight = MediaQuery.sizeOf(context).height * 0.8;
@@ -56,9 +62,7 @@ class _PlayerDetailSheetState extends State<_PlayerDetailSheet> {
                   icon: Icons.cloud_off_outlined,
                   text: 'Couldn’t load player details.',
                   action: TextButton.icon(
-                    onPressed: () => setState(
-                      () => _future = widget.repo.lookupPlayer(widget.line),
-                    ),
+                    onPressed: _retry,
                     icon: const Icon(Icons.refresh),
                     label: const Text('Try again'),
                   ),
