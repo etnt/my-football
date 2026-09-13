@@ -71,7 +71,7 @@ class StatsView extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
             child: Text(
-              'Use the info button for player details.',
+              'Tap a player or use the info button for details.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -177,45 +177,42 @@ class _LeaderboardList extends StatelessWidget {
           if (board == StatsBoard.cards && line.reds > 0) '${line.reds} 🟥',
         ];
         final subtitle = parts.isEmpty ? null : parts.join(' · ');
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onDoubleTap: repo == null ? null : openDetails,
-          child: ListTile(
-            leading: CircleAvatar(
-              backgroundColor: scheme.secondaryContainer,
-              foregroundColor: scheme.onSecondaryContainer,
-              child: Text('$rank', style: theme.textTheme.labelLarge),
-            ),
-            title: Text(line.player),
-            subtitle: subtitle == null
-                ? null
-                : Text(
-                    subtitle,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '${line.value}',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: scheme.primary,
+        return ListTile(
+          leading: CircleAvatar(
+            backgroundColor: scheme.secondaryContainer,
+            foregroundColor: scheme.onSecondaryContainer,
+            child: Text('$rank', style: theme.textTheme.labelLarge),
+          ),
+          title: Text(line.player),
+          subtitle: subtitle == null
+              ? null
+              : Text(
+                  subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
                   ),
                 ),
-                if (repo != null)
-                  IconButton(
-                    tooltip: 'Player details',
-                    onPressed: openDetails,
-                    icon: const Icon(Icons.info_outline),
-                    visualDensity: VisualDensity.compact,
-                  ),
-              ],
-            ),
-            onLongPress: repo == null ? null : openDetails,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${line.value}',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: scheme.primary,
+                ),
+              ),
+              if (repo != null)
+                IconButton(
+                  tooltip: 'Player details',
+                  onPressed: openDetails,
+                  icon: const Icon(Icons.info_outline),
+                  visualDensity: VisualDensity.compact,
+                ),
+            ],
           ),
+          onTap: repo == null ? null : openDetails,
+          onLongPress: repo == null ? null : openDetails,
         );
       },
     );
