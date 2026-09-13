@@ -81,7 +81,8 @@ class StatsView extends ConsumerWidget {
         const Divider(height: 1),
         Expanded(
           child: RefreshIndicator(
-            onRefresh: () => ref.read(statsControllerProvider.notifier).refresh(),
+            onRefresh: () =>
+                ref.read(statsControllerProvider.notifier).refresh(),
             child: lines.isEmpty
                 ? ListView(
                     children: [
@@ -167,7 +168,8 @@ class _LeaderboardList extends StatelessWidget {
           if (line.team != null && line.team!.isNotEmpty) line.team!,
           if (board == StatsBoard.scorers && line.penalties > 0)
             '${line.penalties} pen',
-          if (board == StatsBoard.cards && line.yellows > 0) '${line.yellows} 🟨',
+          if (board == StatsBoard.cards && line.yellows > 0)
+            '${line.yellows} 🟨',
           if (board == StatsBoard.cards && line.reds > 0) '${line.reds} 🟥',
         ];
         final subtitle = parts.isEmpty ? null : parts.join(' · ');

@@ -56,8 +56,9 @@ class _PlayerDetailSheetState extends State<_PlayerDetailSheet> {
                   icon: Icons.cloud_off_outlined,
                   text: 'Couldn’t load player details.',
                   action: TextButton.icon(
-                    onPressed: () =>
-                        setState(() => _future = widget.repo.lookupPlayer(widget.line)),
+                    onPressed: () => setState(
+                      () => _future = widget.repo.lookupPlayer(widget.line),
+                    ),
                     icon: const Icon(Icons.refresh),
                     label: const Text('Try again'),
                   ),
@@ -73,7 +74,10 @@ class _PlayerDetailSheetState extends State<_PlayerDetailSheet> {
                 ),
               );
             }
-            return _PlayerDetailBody(player: player, fallbackTeam: widget.line.team);
+            return _PlayerDetailBody(
+              player: player,
+              fallbackTeam: widget.line.team,
+            );
           },
         ),
       ),
@@ -91,7 +95,8 @@ class _PlayerDetailBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final info = <({String label, String value})>[
-      if (player.position.isNotEmpty) (label: 'Position', value: player.position),
+      if (player.position.isNotEmpty)
+        (label: 'Position', value: player.position),
       if (player.nationality.isNotEmpty)
         (label: 'Nationality', value: player.nationality),
       if (player.dateBorn.isNotEmpty) (label: 'Born', value: player.dateBorn),

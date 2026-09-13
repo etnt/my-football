@@ -152,7 +152,10 @@ class FootballApiClient {
   /// Searches player profiles by name. Premium keys return fuller coverage than
   /// the shared free key, which is enough for Stats' player drill-down.
   Future<List<PlayerDetails>> searchPlayers(String playerName) async {
-    final body = await _get('/$_key/searchplayers.php', query: {'p': playerName});
+    final body = await _get(
+      '/$_key/searchplayers.php',
+      query: {'p': playerName},
+    );
     final players = body['player'];
     if (players is! List) return const [];
     return players

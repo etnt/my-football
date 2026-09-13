@@ -9,7 +9,8 @@ matches grouped by matchweek), and per-team **schedules**. Adding a
 [TheSportsDB](https://www.thesportsdb.com/) API key in Settings unlocks the
 premium tier, which adds a **Live scores** tab (with phone alerts when a goal
 is scored while that tab is open), **Player stats** leaderboards
-(top scorers, assists & cards), and richer team data.
+(top scorers, assists & cards, with player drill-down on double tap), and
+richer team data.
 
 ## Screenshots
 

@@ -104,7 +104,10 @@ class PlayerStatsRepository {
 
     for (final event in capped) {
       if (isCancelled()) return;
-      final timeline = await _eventTimeline(event.id, isCancelled: isCancelled);
+      final timeline = await _eventTimeline(
+        event.id,
+        isCancelled: isCancelled,
+      );
       for (final g in timeline.goals) {
         if (!g.ownGoal && g.scorer.isNotEmpty) {
           goals[g.scorer] = (goals[g.scorer] ?? 0) + 1;
@@ -117,33 +120,6 @@ class PlayerStatsRepository {
         if (a != null && a.isNotEmpty) {
           assists[a] = (assists[a] ?? 0) + 1;
           if (g.team.isNotEmpty) teams[a] = g.team;
-        }
-      }
-
-      Future<PlayerDetails?> lookupPlayer(StatLine line) async {
-        final player = line.player.trim();
-        if (player.isEmpty) return null;
-        final team = line.team?.trim() ?? '';
-        final key = 'stats_player_${_cachePart(player)}_${_cachePart(team)}';
-        final cached = cache.readJson(key);
-        if (cached != null &&
-            cached.isFresh(_playerTtl) &&
-            cached.data is Map<String, dynamic>) {
-          return PlayerDetails.fromJson(cached.data as Map<String, dynamic>);
-        }
-
-        try {
-          final players = await v1.searchPlayers(player);
-          final best = _bestPlayerMatch(players, player: player, team: team);
-          if (best != null) {
-            await cache.writeJson(key, best.toJson());
-          }
-          return best;
-        } catch (_) {
-          if (cached != null && cached.data is Map<String, dynamic>) {
-            return PlayerDetails.fromJson(cached.data as Map<String, dynamic>);
-          }
-          rethrow;
         }
       }
       for (final c in timeline.cards) {
@@ -161,6 +137,33 @@ class PlayerStatsRepository {
         total: total,
         board: _board(goals, penalties, assists, yellows, reds, teams),
       ));
+    }
+  }
+
+  Future<PlayerDetails?> lookupPlayer(StatLine line) async {
+    final player = line.player.trim();
+    if (player.isEmpty) return null;
+    final team = line.team?.trim() ?? '';
+    final key = 'stats_player_${_cachePart(player)}_${_cachePart(team)}';
+    final cached = cache.readJson(key);
+    if (cached != null &&
+        cached.isFresh(_playerTtl) &&
+        cached.data is Map<String, dynamic>) {
+      return PlayerDetails.fromJson(cached.data as Map<String, dynamic>);
+    }
+
+    try {
+      final players = await v1.searchPlayers(player);
+      final best = _bestPlayerMatch(players, player: player, team: team);
+      if (best != null) {
+        await cache.writeJson(key, best.toJson());
+      }
+      return best;
+    } catch (_) {
+      if (cached != null && cached.data is Map<String, dynamic>) {
+        return PlayerDetails.fromJson(cached.data as Map<String, dynamic>);
+      }
+      rethrow;
     }
   }
 
@@ -189,7 +192,13 @@ class PlayerStatsRepository {
         .map((p) {
           final y = yellows[p] ?? 0;
           final r = reds[p] ?? 0;
-          return StatLine(p, y + r, yellows: y, reds: r, team: teams[p]);
+          return StatLine(
+            p,
+            y + r,
+            yellows: y,
+            reds: r,
+            team: teams[p],
+          );
         })
         .toList()
       // Most cards first; a red is worse than a yellow, so break ties on reds.
@@ -296,7 +305,9 @@ class PlayerStatsRepository {
     if (players.isEmpty) return null;
     final normalizedPlayer = _normalize(player);
     final normalizedTeam = _normalize(team);
-    final soccer = players.where((p) => _normalize(p.sport) == 'soccer').toList();
+    final soccer = players
+        .where((p) => _normalize(p.sport) == 'soccer')
+        .toList();
     final candidates = soccer.isNotEmpty ? soccer : players;
     candidates.sort((a, b) {
       final byScore = _scorePlayer(
