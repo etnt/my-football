@@ -7,6 +7,7 @@ import '../../core/storage/cache_store.dart';
 import '../../models/fixture.dart';
 import '../../models/league.dart';
 import '../../models/match_timeline.dart';
+import '../../models/player_details.dart';
 import 'player_stats.dart';
 
 /// Progress callback payload emitted after each match is processed.
@@ -62,6 +63,9 @@ class PlayerStatsRepository {
   /// it gets a short TTL and is force-refreshed on pull-to-refresh.
   static const _eventListTtl = Duration(hours: 6);
 
+  /// Player profiles change rarely enough to cache them for a week.
+  static const _playerTtl = Duration(days: 7);
+
   /// How many rows to keep on each board.
   static const _topN = 40;
 
@@ -113,6 +117,33 @@ class PlayerStatsRepository {
         if (a != null && a.isNotEmpty) {
           assists[a] = (assists[a] ?? 0) + 1;
           if (g.team.isNotEmpty) teams[a] = g.team;
+        }
+      }
+
+      Future<PlayerDetails?> lookupPlayer(StatLine line) async {
+        final player = line.player.trim();
+        if (player.isEmpty) return null;
+        final team = line.team?.trim() ?? '';
+        final key = 'stats_player_${_cachePart(player)}_${_cachePart(team)}';
+        final cached = cache.readJson(key);
+        if (cached != null &&
+            cached.isFresh(_playerTtl) &&
+            cached.data is Map<String, dynamic>) {
+          return PlayerDetails.fromJson(cached.data as Map<String, dynamic>);
+        }
+
+        try {
+          final players = await v1.searchPlayers(player);
+          final best = _bestPlayerMatch(players, player: player, team: team);
+          if (best != null) {
+            await cache.writeJson(key, best.toJson());
+          }
+          return best;
+        } catch (_) {
+          if (cached != null && cached.data is Map<String, dynamic>) {
+            return PlayerDetails.fromJson(cached.data as Map<String, dynamic>);
+          }
+          rethrow;
         }
       }
       for (final c in timeline.cards) {
@@ -256,4 +287,60 @@ class PlayerStatsRepository {
         .map(Fixture.fromJson)
         .toList();
   }
+
+  PlayerDetails? _bestPlayerMatch(
+    List<PlayerDetails> players, {
+    required String player,
+    required String team,
+  }) {
+    if (players.isEmpty) return null;
+    final normalizedPlayer = _normalize(player);
+    final normalizedTeam = _normalize(team);
+    final soccer = players.where((p) => _normalize(p.sport) == 'soccer').toList();
+    final candidates = soccer.isNotEmpty ? soccer : players;
+    candidates.sort((a, b) {
+      final byScore = _scorePlayer(
+        b,
+        normalizedPlayer: normalizedPlayer,
+        normalizedTeam: normalizedTeam,
+      ).compareTo(
+        _scorePlayer(
+          a,
+          normalizedPlayer: normalizedPlayer,
+          normalizedTeam: normalizedTeam,
+        ),
+      );
+      if (byScore != 0) return byScore;
+      return a.name.compareTo(b.name);
+    });
+    return candidates.first;
+  }
+
+  int _scorePlayer(
+    PlayerDetails player, {
+    required String normalizedPlayer,
+    required String normalizedTeam,
+  }) {
+    final name = _normalize(player.name);
+    final team = _normalize(player.team);
+    var score = 0;
+    if (name == normalizedPlayer) score += 8;
+    if (normalizedTeam.isNotEmpty && team == normalizedTeam) score += 6;
+    if (normalizedTeam.isNotEmpty &&
+        team.isNotEmpty &&
+        (team.contains(normalizedTeam) || normalizedTeam.contains(team))) {
+      score += 3;
+    }
+    if (player.position.isNotEmpty) score += 1;
+    if (player.imageUrl.isNotEmpty) score += 1;
+    if (player.description.isNotEmpty) score += 1;
+    return score;
+  }
+
+  String _cachePart(String value) => _normalize(value).replaceAll(' ', '_');
+
+  String _normalize(String value) => value
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+      .trim();
 }

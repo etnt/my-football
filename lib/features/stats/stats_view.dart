@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/widgets/api_error_view.dart';
 import '../../shared/widgets/message_view.dart';
+import 'player_detail_sheet.dart';
 import 'player_stats.dart';
+import 'player_stats_repository.dart';
 import 'stats_providers.dart';
 
 /// The stats body: a Scorers/Assists/Cards toggle plus a ranked leaderboard
@@ -15,6 +17,7 @@ class StatsView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final board = ref.watch(statsBoardProvider);
     final stats = ref.watch(statsControllerProvider);
+    final repo = ref.watch(playerStatsRepositoryProvider);
 
     if (stats.phase == StatsPhase.premiumRequired) {
       return const MessageView(
@@ -64,6 +67,16 @@ class StatsView extends ConsumerWidget {
                 ref.read(statsBoardProvider.notifier).state = selection.first,
           ),
         ),
+        if (repo != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: Text(
+              'Double-tap a player for details.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
         if (stats.isBuilding) _BuildProgress(stats: stats),
         const Divider(height: 1),
         Expanded(
@@ -85,7 +98,7 @@ class StatsView extends ConsumerWidget {
                       ),
                     ],
                   )
-                : _LeaderboardList(lines: lines, board: board),
+                : _LeaderboardList(lines: lines, board: board, repo: repo),
           ),
         ),
       ],
@@ -129,10 +142,15 @@ class _BuildProgress extends StatelessWidget {
 }
 
 class _LeaderboardList extends StatelessWidget {
-  const _LeaderboardList({required this.lines, required this.board});
+  const _LeaderboardList({
+    required this.lines,
+    required this.board,
+    required this.repo,
+  });
 
   final List<StatLine> lines;
   final StatsBoard board;
+  final PlayerStatsRepository? repo;
 
   @override
   Widget build(BuildContext context) {
@@ -153,26 +171,32 @@ class _LeaderboardList extends StatelessWidget {
           if (board == StatsBoard.cards && line.reds > 0) '${line.reds} 🟥',
         ];
         final subtitle = parts.isEmpty ? null : parts.join(' · ');
-        return ListTile(
-          leading: CircleAvatar(
-            backgroundColor: scheme.secondaryContainer,
-            foregroundColor: scheme.onSecondaryContainer,
-            child: Text('$rank', style: theme.textTheme.labelLarge),
-          ),
-          title: Text(line.player),
-          subtitle: subtitle == null
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onDoubleTap: repo == null
               ? null
-              : Text(
-                  subtitle,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
+              : () => showPlayerDetailSheet(context, repo, line),
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor: scheme.secondaryContainer,
+              foregroundColor: scheme.onSecondaryContainer,
+              child: Text('$rank', style: theme.textTheme.labelLarge),
+            ),
+            title: Text(line.player),
+            subtitle: subtitle == null
+                ? null
+                : Text(
+                    subtitle,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
-                ),
-          trailing: Text(
-            '${line.value}',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: scheme.primary,
+            trailing: Text(
+              '${line.value}',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: scheme.primary,
+              ),
             ),
           ),
         );

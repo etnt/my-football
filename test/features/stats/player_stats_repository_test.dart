@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:my_football/core/api/football_api_client.dart';
 import 'package:my_football/core/api/sportsdb_v2_client.dart';
 import 'package:my_football/core/storage/cache_store.dart';
+import 'package:my_football/features/stats/player_stats.dart';
 import 'package:my_football/features/stats/player_stats_repository.dart';
 import 'package:my_football/models/league.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -87,20 +88,46 @@ const _timeline2 = '''
 }
 ''';
 
+const _playersHaaland = '''
+{
+  "player": [
+    {
+      "idPlayer": "1",
+      "strPlayer": "Erling Haaland",
+      "strTeam": "Manchester City",
+      "strSport": "Soccer",
+      "strPosition": "Forward",
+      "strNationality": "Norway",
+      "strThumb": "haaland.png"
+    },
+    {
+      "idPlayer": "2",
+      "strPlayer": "Erling Haaland",
+      "strTeam": "Borussia Dortmund",
+      "strSport": "Soccer",
+      "strPosition": "Forward"
+    }
+  ]
+}
+''';
+
 void main() {
   late CacheStore cache;
+  late _RoutingAdapter v1Adapter;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     cache = CacheStore(await SharedPreferences.getInstance());
+    v1Adapter = _RoutingAdapter((path) {
+      if (path.contains('eventsseason.php')) return _seasonEvents;
+      if (path.contains('searchplayers.php')) return _playersHaaland;
+      return '{}';
+    });
   });
 
   PlayerStatsRepository buildRepo(_RoutingAdapter v2Adapter) {
     return PlayerStatsRepository(
-      v1: _v1With(_RoutingAdapter((path) {
-        if (path.contains('eventsseason.php')) return _seasonEvents;
-        return '{}';
-      })),
+      v1: _v1With(v1Adapter),
       v2: _v2With(v2Adapter),
       cache: cache,
       // No throttling in tests.
@@ -174,5 +201,24 @@ void main() {
       onProgress: (_) {},
     );
     expect(v2Adapter.calls, firstRunCalls);
+  });
+
+  test('finds the best matching player profile and caches it', () async {
+    final repo = buildRepo(_RoutingAdapter(timelineFor));
+
+    final first = await repo.lookupPlayer(
+      const StatLine('Erling Haaland', 3, team: 'Manchester City'),
+    );
+    final v1Calls = v1Adapter.calls;
+    final second = await repo.lookupPlayer(
+      const StatLine('Erling Haaland', 3, team: 'Manchester City'),
+    );
+
+    expect(first, isNotNull);
+    expect(first!.team, 'Manchester City');
+    expect(first.position, 'Forward');
+    expect(second, isNotNull);
+    expect(second!.id, first.id);
+    expect(v1Adapter.calls, v1Calls);
   });
 }

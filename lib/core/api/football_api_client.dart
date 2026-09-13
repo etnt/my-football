@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../models/fixture.dart';
 import '../../models/league.dart';
+import '../../models/player_details.dart';
 import '../../models/team_standing.dart';
 import 'api_exception.dart';
 
@@ -145,6 +146,19 @@ class FootballApiClient {
     return events
         .whereType<Map<String, dynamic>>()
         .map(Fixture.fromJson)
+        .toList();
+  }
+
+  /// Searches player profiles by name. Premium keys return fuller coverage than
+  /// the shared free key, which is enough for Stats' player drill-down.
+  Future<List<PlayerDetails>> searchPlayers(String playerName) async {
+    final body = await _get('/$_key/searchplayers.php', query: {'p': playerName});
+    final players = body['player'];
+    if (players is! List) return const [];
+    return players
+        .whereType<Map<String, dynamic>>()
+        .map(PlayerDetails.fromApiJson)
+        .whereType<PlayerDetails>()
         .toList();
   }
 
