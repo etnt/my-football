@@ -73,8 +73,8 @@ class _TeamBody extends ConsumerWidget {
     final finished = byDate.where((f) => f.isFinished).toList();
     final upcoming = byDate.where((f) => !f.isFinished).toList();
 
-    final recent = finished.reversed.take(5).toList();
-    final next = upcoming.take(5).toList();
+    final results = finished.reversed.toList();
+    final next = upcoming;
     // Last five results in chronological order for the form strip.
     final form = finished
         .map((f) => f.resultFor(teamId))
@@ -85,9 +85,9 @@ class _TeamBody extends ConsumerWidget {
     return ListView(
       children: [
         _Header(teamName: teamName, teamLogo: teamLogo, form: recentForm),
-        if (recent.isNotEmpty) ...[
-          const _SectionHeader('Recent results'),
-          for (final f in recent) FixtureTile(fixture: f),
+        if (results.isNotEmpty) ...[
+          const _SectionHeader('Results'),
+          for (final f in results) FixtureTile(fixture: f),
         ],
         if (next.isNotEmpty) ...[
           const _SectionHeader('Upcoming'),
