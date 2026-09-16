@@ -25,6 +25,5 @@ final teamFixturesProvider =
         teamId: ref2.teamId,
         leagueId: ref2.leagueId,
         season: season,
-        premium: premium,
       );
 });
