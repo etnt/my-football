@@ -58,6 +58,26 @@ class FootballApiClient {
         .toList();
   }
 
+  /// The season string the league's current data is indexed under, e.g.
+  /// `2026-2027` for the European leagues or `2026` for calendar-year leagues
+  /// like Allsvenskan. Null when the lookup is missing or carries no season.
+  ///
+  /// Used by [LeagueSeasonResolver] to request seasons in the format a league
+  /// actually supports — a wrong-format season returns an empty body or even
+  /// bogus tables.
+  Future<String?> getLeagueCurrentSeason({required int leagueId}) async {
+    final body = await _get('/$_key/lookupleague.php', query: {'id': leagueId});
+    final leagues = body['leagues'];
+    if (leagues is! List) return null;
+    for (final league in leagues) {
+      if (league is! Map<String, dynamic>) continue;
+      final season = (league['strCurrentSeason'] as String?)?.trim();
+      if (season != null && season.isNotEmpty) return season;
+      break;
+    }
+    return null;
+  }
+
   /// Pseudo-countries used by TheSportsDB for competitions that are not tied
   /// to a single country (e.g. the UEFA Champions League lives under
   /// `Europe`). `all_countries.php` only lists real countries, so these are

@@ -170,6 +170,12 @@ class _SeasonPicker extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final season = ref.watch(seasonProvider);
+    // Calendar-year leagues (Allsvenskan, Eliteserien, …) run Jan–Dec, so
+    // their season is a single year rather than `YYYY/YYYY`. The format comes
+    // from the league's declared current season; split years are the default
+    // while it resolves (or when it can't be determined).
+    final splitYears =
+        ref.watch(selectedLeagueUsesSplitYearsProvider).valueOrNull ?? true;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
@@ -182,7 +188,9 @@ class _SeasonPicker extends ConsumerWidget {
               for (final year in seasons)
                 DropdownMenuItem(
                   value: year,
-                  child: Text('$year/${(year + 1) % 100}'),
+                  child: Text(
+                    splitYears ? '$year/${(year + 1) % 100}' : '$year',
+                  ),
                 ),
             ],
             onChanged: (value) {

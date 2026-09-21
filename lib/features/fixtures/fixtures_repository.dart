@@ -1,4 +1,5 @@
 import '../../core/api/football_api_client.dart';
+import '../../core/api/league_season_resolver.dart';
 import '../../core/storage/cache_store.dart';
 import '../../models/fixture.dart';
 import '../../models/league.dart';
@@ -13,12 +14,14 @@ enum FixturesMode { results, upcoming }
 /// Note: on the free key `eventsseason` only returns the first ~15 events of a
 /// season, so both lists are limited.
 class FixturesRepository {
-  FixturesRepository({required this.client, required this.cache});
+  FixturesRepository({required this.client, required this.cache})
+    : _seasons = LeagueSeasonResolver(client: client, cache: cache);
 
   static const _ttl = Duration(minutes: 30);
 
   final FootballApiClient client;
   final CacheStore cache;
+  late final LeagueSeasonResolver _seasons;
 
   /// Shared cache key so results/upcoming/team views reuse one network call.
   String _cacheKey(int leagueId, int season) => 'season_events_${leagueId}_$season';
@@ -54,7 +57,10 @@ class FixturesRepository {
     try {
       final fresh = await client.getSeasonEvents(
         leagueId: league.id,
-        season: apiSeason(season),
+        season: await _seasons.forStartYear(
+          leagueId: league.id,
+          startYear: season,
+        ),
       );
       await cache.writeJson(key, fresh.map((e) => e.toJson()).toList());
       return fresh;

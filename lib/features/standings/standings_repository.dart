@@ -1,4 +1,5 @@
 import '../../core/api/football_api_client.dart';
+import '../../core/api/league_season_resolver.dart';
 import '../../core/storage/cache_store.dart';
 import '../../models/league.dart';
 import '../../models/team_standing.dart';
@@ -9,12 +10,14 @@ import '../../models/team_standing.dart';
 /// * On a network/API failure, any previously cached table (even if stale) is
 ///   returned so the app stays useful offline.
 class StandingsRepository {
-  StandingsRepository({required this.client, required this.cache});
+  StandingsRepository({required this.client, required this.cache})
+    : _seasons = LeagueSeasonResolver(client: client, cache: cache);
 
   static const _ttl = Duration(hours: 6);
 
   final FootballApiClient client;
   final CacheStore cache;
+  late final LeagueSeasonResolver _seasons;
 
   String _cacheKey(int leagueId, int season) => 'standings_${leagueId}_$season';
 
@@ -35,7 +38,10 @@ class StandingsRepository {
     try {
       final fresh = await client.getStandings(
         leagueId: league.id,
-        season: apiSeason(season),
+        season: await _seasons.forStartYear(
+          leagueId: league.id,
+          startYear: season,
+        ),
       );
       await cache.writeJson(key, fresh.map((e) => e.toJson()).toList());
       return fresh;

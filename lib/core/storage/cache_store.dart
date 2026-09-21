@@ -55,6 +55,7 @@ class CacheStore {
     'stats_',
     'catalog_countries_',
     'catalog_leagues_',
+    'league_season_',
   ];
 
   /// Drops all cached API responses. Called when the API key changes so free

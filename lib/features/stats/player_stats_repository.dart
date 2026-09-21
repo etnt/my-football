@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/api/football_api_client.dart';
+import '../../core/api/league_season_resolver.dart';
 import '../../core/api/sportsdb_v2_client.dart';
 import '../../core/storage/cache_store.dart';
 import '../../core/text/lookup_text_normalizer.dart';
@@ -41,11 +42,13 @@ class PlayerStatsRepository {
     required this.v2,
     required this.cache,
     Duration? minRequestInterval,
-  }) : _minInterval = minRequestInterval ?? _defaultInterval;
+  }) : _minInterval = minRequestInterval ?? _defaultInterval,
+       _seasons = LeagueSeasonResolver(client: v1, cache: cache);
 
   final FootballApiClient v1;
   final SportsDbV2Client v2;
   final CacheStore cache;
+  late final LeagueSeasonResolver _seasons;
 
   /// Conservative request budget while the cache warms up. The Premium cap is
   /// 100/min; we deliberately aim lower so bursts never trip a 429.
@@ -280,7 +283,10 @@ class PlayerStatsRepository {
     try {
       final all = await v1.getSeasonEvents(
         leagueId: league.id,
-        season: apiSeason(season),
+        season: await _seasons.forStartYear(
+          leagueId: league.id,
+          startYear: season,
+        ),
       );
       final finished = all.where((e) => e.isFinished).toList();
       await cache.writeJson(

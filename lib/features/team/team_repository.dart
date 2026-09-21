@@ -1,7 +1,7 @@
 import '../../core/api/football_api_client.dart';
+import '../../core/api/league_season_resolver.dart';
 import '../../core/storage/cache_store.dart';
 import '../../models/fixture.dart';
-import '../../models/league.dart';
 
 /// Fetches a team's fixtures for a season by pulling the team's league season
 /// events (shared cache key with [FixturesRepository]) and filtering by team.
@@ -9,12 +9,14 @@ import '../../models/league.dart';
 /// Note: on the free key the league only exposes ~15 events, so a team will
 /// typically have 0-2 matches here.
 class TeamRepository {
-  TeamRepository({required this.client, required this.cache});
+  TeamRepository({required this.client, required this.cache})
+    : _seasons = LeagueSeasonResolver(client: client, cache: cache);
 
   static const _ttl = Duration(minutes: 30);
 
   final FootballApiClient client;
   final CacheStore cache;
+  late final LeagueSeasonResolver _seasons;
 
   /// Shared with [FixturesRepository] so we reuse a single network call.
   String _cacheKey(int leagueId, int season) => 'season_events_${leagueId}_$season';
@@ -54,7 +56,10 @@ class TeamRepository {
     try {
       final fresh = await client.getSeasonEvents(
         leagueId: leagueId,
-        season: apiSeason(season),
+        season: await _seasons.forStartYear(
+          leagueId: leagueId,
+          startYear: season,
+        ),
       );
       await cache.writeJson(key, fresh.map((e) => e.toJson()).toList());
       return fresh;

@@ -78,6 +78,16 @@ class FollowedLeaguesNotifier extends Notifier<List<League>> {
 /// complete table; the in-progress current season may be sparse.
 final seasonProvider = StateProvider<int>((ref) => 2025);
 
+/// Whether the selected league's seasons are indexed as `YYYY-YYYY` (as opposed
+/// to a single calendar year, like Allsvenskan's). Drives the season picker's
+/// labels; split years are assumed while the format is being resolved.
+final selectedLeagueUsesSplitYearsProvider = FutureProvider.autoDispose<bool>((
+  ref,
+) {
+  final league = ref.watch(selectedLeagueProvider);
+  return ref.watch(leagueSeasonResolverProvider).usesSplitYears(league.id);
+});
+
 /// The standings for the selected league/season.
 final standingsProvider = AsyncNotifierProvider.autoDispose<StandingsNotifier,
     List<TeamStanding>>(StandingsNotifier.new);

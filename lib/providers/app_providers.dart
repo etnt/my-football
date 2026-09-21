@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/api/football_api_client.dart';
+import '../core/api/league_season_resolver.dart';
 import '../core/api/sportsdb_v2_client.dart';
 import '../core/storage/cache_store.dart';
 import '../core/storage/secure_key_store.dart';
@@ -65,6 +66,15 @@ final footballApiClientProvider = Provider<FootballApiClient>((ref) {
   );
   ref.onDispose(client.close);
   return client;
+});
+
+/// Resolves the season string TheSportsDB expects per league (split years for
+/// the European leagues, single calendar years for e.g. Allsvenskan).
+final leagueSeasonResolverProvider = Provider<LeagueSeasonResolver>((ref) {
+  return LeagueSeasonResolver(
+    client: ref.watch(footballApiClientProvider),
+    cache: CacheStore(ref.watch(sharedPreferencesProvider)),
+  );
 });
 
 /// True when a (Premium) key is stored — unlocks v2 features like livescores.

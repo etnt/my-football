@@ -395,4 +395,44 @@ void main() {
       expect(players, isEmpty);
     });
   });
+
+  group('FootballApiClient.getLeagueCurrentSeason', () {
+    test('reads strCurrentSeason from lookupleague.php', () async {
+      final adapter = _FakeAdapter(
+        body:
+            '{"leagues":[{"idLeague":"4347","strLeague":"Swedish Allsvenskan",'
+            '"strCountry":"Sweden","strCurrentSeason":"2026"}]}',
+      );
+      final client = _clientWith(adapter);
+
+      final season = await client.getLeagueCurrentSeason(leagueId: 4347);
+
+      expect(season, '2026');
+      expect(adapter.lastOptions?.path, '/123/lookupleague.php');
+      expect(adapter.lastOptions?.queryParameters['id'], 4347);
+    });
+
+    test('trims the declared season', () async {
+      final client = _clientWith(
+        _FakeAdapter(body: '{"leagues":[{"strCurrentSeason": " 2026 "}]}'),
+      );
+
+      expect(await client.getLeagueCurrentSeason(leagueId: 1), '2026');
+    });
+
+    test('returns null when no league or season is declared', () async {
+      expect(
+        await _clientWith(
+          _FakeAdapter(body: '{"leagues":[]}'),
+        ).getLeagueCurrentSeason(leagueId: 1),
+        isNull,
+      );
+      expect(
+        await _clientWith(
+          _FakeAdapter(body: '{"leagues":[{"strCurrentSeason":""}]}'),
+        ).getLeagueCurrentSeason(leagueId: 1),
+        isNull,
+      );
+    });
+  });
 }
