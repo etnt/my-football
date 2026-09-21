@@ -44,7 +44,7 @@ class Leaderboards {
 }
 
 /// Where the aggregation currently is.
-enum StatsPhase { building, done, error, premiumRequired }
+enum StatsPhase { building, done, error, premiumRequired, unavailable }
 
 /// Immutable snapshot of the stats build: the (possibly partial) leaderboards
 /// plus progress so the UI can show "Analyzed X of Y matches".

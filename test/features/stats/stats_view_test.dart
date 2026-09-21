@@ -102,4 +102,14 @@ void main() {
     final disabledTile = tester.widget<ListTile>(find.byType(ListTile).first);
     expect(disabledTile.onTap, isNull);
   });
+
+  testWidgets('explains when the league has no timeline data', (tester) async {
+    await tester.pumpWidget(_host(
+      state: const StatsState(phase: StatsPhase.unavailable),
+      repo: null,
+    ));
+    await tester.pump();
+
+    expect(find.textContaining('no match timelines'), findsOneWidget);
+  });
 }

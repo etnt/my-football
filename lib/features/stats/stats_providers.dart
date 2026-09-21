@@ -69,7 +69,7 @@ class StatsController extends Notifier<StatsState> {
     bool refreshEventList = false,
   }) async {
     try {
-      await repo.aggregate(
+      final timelineUnavailable = await repo.aggregate(
         league: league,
         season: season,
         refreshEventList: refreshEventList,
@@ -85,7 +85,11 @@ class StatsController extends Notifier<StatsState> {
         },
       );
       if (token == _runToken) {
-        state = state.copyWith(phase: StatsPhase.done);
+        state = state.copyWith(
+          phase: timelineUnavailable
+              ? StatsPhase.unavailable
+              : StatsPhase.done,
+        );
       }
     } catch (e) {
       if (token == _runToken) {

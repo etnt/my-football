@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -300,5 +301,121 @@ void main() {
 
     expect(player, isNotNull);
     expect(player!.name, 'Kylian Mbappé');
+  });
+
+  group('timeline coverage', () {
+    // A 12-match finished season, like a full Allsvenskan schedule.
+    final manyFinished = jsonEncode({
+      'events': [
+        for (var i = 1; i <= 12; i++)
+          {
+            'idEvent': '$i',
+            'strStatus': 'FT',
+            'intHomeScore': '1',
+            'intAwayScore': '0',
+            'intRound': '1',
+          },
+      ],
+    });
+
+    PlayerStatsRepository repoWith({
+      required _RoutingAdapter v1Adapter,
+      required _RoutingAdapter v2Adapter,
+    }) {
+      return PlayerStatsRepository(
+        v1: _v1With(v1Adapter),
+        v2: _v2With(v2Adapter),
+        cache: cache,
+        minRequestInterval: Duration.zero,
+      );
+    }
+
+    test('stops early when a league has no timeline data at all', () async {
+      var timelineCalls = 0;
+      final v1Adapter = _RoutingAdapter(
+        (path) => path.contains('eventsseason.php') ? manyFinished : '{}',
+      );
+      final v2Adapter = _RoutingAdapter((path) {
+        if (path.contains('event_timeline')) timelineCalls++;
+        return '{}'; // no rows — like Allsvenskan on TheSportsDB
+      });
+      final repo = repoWith(v1Adapter: v1Adapter, v2Adapter: v2Adapter);
+
+      final unavailable = await repo.aggregate(
+        league: League.premierLeague,
+        season: 2025,
+        isCancelled: () => false,
+        onProgress: (_) {},
+      );
+
+      expect(unavailable, isTrue);
+      // Stops after the probe limit instead of crawling every match.
+      expect(timelineCalls, 10);
+    });
+
+    test('keeps building when some matches do have timeline data', () async {
+      final v1Adapter = _RoutingAdapter(
+        (path) => path.contains('eventsseason.php') ? manyFinished : '{}',
+      );
+      // Every third match has a populated timeline — partial coverage must
+      // never be mistaken for "no coverage".
+      final v2Adapter = _RoutingAdapter((path) {
+        if (!path.contains('event_timeline')) return '{}';
+        final id = int.parse(path.split('/').last);
+        return id % 3 == 0 ? _timeline1 : '{}';
+      });
+      final repo = repoWith(v1Adapter: v1Adapter, v2Adapter: v2Adapter);
+
+      StatsProgress? last;
+      final unavailable = await repo.aggregate(
+        league: League.premierLeague,
+        season: 2025,
+        isCancelled: () => false,
+        onProgress: (p) => last = p,
+      );
+
+      expect(unavailable, isFalse);
+      expect(last!.processed, 12);
+      expect(
+        last!.board.scorers.any((s) => s.player == 'Haaland'),
+        isTrue,
+      );
+    });
+
+    test('expired empty timelines are re-checked so late coverage is found',
+        () async {
+      // Simulate an earlier build that cached empty timelines — aged past the
+      // empty-TTL so they must be re-fetched.
+      final prefs = await SharedPreferences.getInstance();
+      final staleTs = DateTime.now()
+          .subtract(const Duration(days: 8))
+          .millisecondsSinceEpoch;
+      for (var i = 1; i <= 12; i++) {
+        await prefs.setString(
+          'stats_ev2_$i',
+          jsonEncode({'ts': staleTs, 'data': {'g': [], 'c': []}}),
+        );
+      }
+      final v1Adapter = _RoutingAdapter(
+        (path) => path.contains('eventsseason.php') ? manyFinished : '{}',
+      );
+      // Coverage has since arrived for the very first match.
+      final v2Adapter = _RoutingAdapter((path) {
+        if (!path.contains('event_timeline')) return '{}';
+        return path.endsWith('/1') ? _timeline1 : '{}';
+      });
+      final repo = repoWith(v1Adapter: v1Adapter, v2Adapter: v2Adapter);
+
+      StatsProgress? last;
+      final unavailable = await repo.aggregate(
+        league: League.premierLeague,
+        season: 2025,
+        isCancelled: () => false,
+        onProgress: (p) => last = p,
+      );
+
+      expect(unavailable, isFalse);
+      expect(last!.board.scorers.any((s) => s.player == 'Haaland'), isTrue);
+    });
   });
 }

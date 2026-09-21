@@ -33,9 +33,14 @@ class StatsProgress {
 ///    100 req/min cap, with reactive back-off on HTTP 429;
 ///  * **cached permanently per event** — a finished match's timeline never
 ///    changes — so the full build is a one-time cost and any later refresh only
-///    fetches newly-finished matches;
+///    fetches newly-finished matches; empty timelines (the provider has no
+///    rows for that match) are the exception and expire after a week so a
+///    league that later gains coverage is re-checked;
 ///  * **incremental & resumable** — an interrupted build picks up where it left
-///    off because processed events are already in the cache.
+///    off because processed events are already in the cache;
+///  * **coverage-aware** — some leagues (e.g. Allsvenskan) have no match
+///    timelines at all on TheSportsDB; [aggregate] detects that after a few
+///    empty probes and stops instead of crawling the whole season in vain.
 class PlayerStatsRepository {
   PlayerStatsRepository({
     required this.v1,
@@ -63,6 +68,15 @@ class PlayerStatsRepository {
   /// immutable, so effectively forever.
   static const _eventTtl = Duration(days: 3650);
 
+  /// Empty timelines may reflect a temporary data gap rather than a permanent
+  /// one, so they expire much sooner and get re-checked on later builds.
+  static const _emptyTimelineTtl = Duration(days: 7);
+
+  /// How many leading matches may come back with completely empty timelines
+  /// before the build concludes the league has no timeline coverage at all
+  /// and stops crawling the rest of the season in vain.
+  static const _timelineProbeLimit = 10;
+
   /// The season-schedule list is cheap and can change (new matches finish), so
   /// it gets a short TTL and is force-refreshed on pull-to-refresh.
   static const _eventListTtl = Duration(hours: 6);
@@ -85,7 +99,13 @@ class PlayerStatsRepository {
   ///
   /// [onProgress] is called after every match with the running partial board.
   /// [isCancelled] is polled frequently so a superseded build stops promptly.
-  Future<void> aggregate({
+  ///
+  /// Returns `true` when the build stopped early because the league's matches
+  /// carry no timeline data at all on TheSportsDB (the first
+  /// [_timelineProbeLimit] matches had no goals and no cards) — the caller
+  /// should tell the user stats are unavailable rather than show empty
+  /// boards.
+  Future<bool> aggregate({
     required League league,
     required int season,
     required bool Function() isCancelled,
@@ -106,13 +126,26 @@ class PlayerStatsRepository {
     final reds = <String, int>{};
     final teams = <String, String>{};
     var processed = 0;
+    var emptyProbes = 0;
+    var dataFound = false;
 
     for (final event in capped) {
-      if (isCancelled()) return;
+      if (isCancelled()) return false;
       final timeline = await _eventTimeline(
         event.id,
         isCancelled: isCancelled,
       );
+      if (timeline.goals.isEmpty && timeline.cards.isEmpty) {
+        emptyProbes++;
+        // Only conclude "no coverage" while nothing at all has been found —
+        // a league with partial coverage never reaches this.
+        if (!dataFound && emptyProbes >= _timelineProbeLimit) {
+          return true;
+        }
+      } else {
+        emptyProbes = 0;
+        dataFound = true;
+      }
       for (final g in timeline.goals) {
         if (!g.ownGoal && g.scorer.isNotEmpty) {
           goals[g.scorer] = (goals[g.scorer] ?? 0) + 1;
@@ -143,6 +176,7 @@ class PlayerStatsRepository {
         board: _board(goals, penalties, assists, yellows, reds, teams),
       ));
     }
+    return false;
   }
 
   Future<PlayerDetails?> lookupPlayer(StatLine line) async {
@@ -223,17 +257,22 @@ class PlayerStatsRepository {
   }
 
   /// The timeline (goals + cards) for a single event — from cache when present,
-  /// otherwise fetched (rate-limited) and cached permanently.
+  /// otherwise fetched (rate-limited) and cached. Real timelines are kept
+  /// effectively forever; empty ones expire after a week so a league whose
+  /// coverage arrives late is re-checked.
   Future<MatchTimeline> _eventTimeline(
     int eventId, {
     required bool Function() isCancelled,
   }) async {
     final key = 'stats_ev2_$eventId';
     final cached = cache.readJson(key);
-    if (cached != null &&
-        cached.isFresh(_eventTtl) &&
-        cached.data is Map<String, dynamic>) {
-      return MatchTimeline.fromJson(cached.data as Map<String, dynamic>);
+    if (cached != null && cached.data is Map<String, dynamic>) {
+      final timeline =
+          MatchTimeline.fromJson(cached.data as Map<String, dynamic>);
+      final knownEmpty = timeline.goals.isEmpty && timeline.cards.isEmpty;
+      if (cached.isFresh(knownEmpty ? _emptyTimelineTtl : _eventTtl)) {
+        return timeline;
+      }
     }
 
     var attempt = 0;

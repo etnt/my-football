@@ -25,6 +25,14 @@ class StatsView extends ConsumerWidget {
         text: 'Player stats need a Premium key. Add one in Settings.',
       );
     }
+    if (stats.phase == StatsPhase.unavailable) {
+      return const MessageView(
+        icon: Icons.sports_soccer_outlined,
+        text:
+            'TheSportsDB has no match timelines for this league, '
+            'so player stats can’t be built.',
+      );
+    }
     if (stats.phase == StatsPhase.error) {
       return ApiErrorView(error: stats.error ?? 'Could not build stats.');
     }
