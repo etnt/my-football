@@ -5,6 +5,7 @@ import '../../models/fixture.dart';
 import '../../shared/widgets/api_error_view.dart';
 import '../../shared/widgets/message_view.dart';
 import '../fixtures/widgets/fixture_tile.dart';
+import '../live/live_match_goals_sheet.dart';
 import '../reminders/match_reminder.dart';
 import '../reminders/reminder_sheet.dart';
 import 'team_providers.dart';
@@ -87,7 +88,12 @@ class _TeamBody extends ConsumerWidget {
         _Header(teamName: teamName, teamLogo: teamLogo, form: recentForm),
         if (results.isNotEmpty) ...[
           const _SectionHeader('Results'),
-          for (final f in results) FixtureTile(fixture: f),
+          for (final f in results)
+            FixtureTile(
+              fixture: f,
+              // Finished results open the goals sheet (issue #5).
+              onTap: f.isFinished ? () => showMatchGoalsSheet(context, f) : null,
+            ),
         ],
         if (next.isNotEmpty) ...[
           const _SectionHeader('Upcoming'),

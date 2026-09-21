@@ -6,6 +6,7 @@ import '../../shared/widgets/api_error_view.dart';
 import '../../shared/widgets/message_view.dart';
 import '../reminders/match_reminder.dart';
 import '../reminders/reminder_sheet.dart';
+import '../live/live_match_goals_sheet.dart';
 import 'fixtures_providers.dart';
 import 'fixtures_repository.dart';
 import 'widgets/fixture_tile.dart';
@@ -153,6 +154,10 @@ class _MatchweekSection extends ConsumerWidget {
                   for (final f in group.matches) ...[
                     FixtureTile(
                       fixture: f,
+                      // Finished matches open the goals sheet (issue #5).
+                      onTap: f.isFinished
+                          ? () => showMatchGoalsSheet(context, f)
+                          : null,
                       // Only upcoming, not-yet-started matches offer a
                       // kick-off reminder (REQ-006).
                       onDoubleTap: MatchReminder.canRemind(f)

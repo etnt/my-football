@@ -20,6 +20,18 @@ class LiveMatchGoalsSheet extends ConsumerStatefulWidget {
       _LiveMatchGoalsSheetState();
 }
 
+/// Opens the goals sheet for [fixture] in a modal bottom sheet — the same
+/// presentation for the Live tab rows and, since issue #5, for finished
+/// matches on the Matches tab and team screens.
+Future<void> showMatchGoalsSheet(BuildContext context, Fixture fixture) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (_) => LiveMatchGoalsSheet(fixture: fixture),
+  );
+}
+
 /// Most the sheet may occupy, so the match header always stays visible.
 const _maxHeightFactor = 0.7;
 
@@ -99,10 +111,16 @@ class _LiveMatchGoalsSheetState extends ConsumerState<LiveMatchGoalsSheet> {
                 ),
                 data: (value) {
                   if (value.goals.isEmpty) {
-                    return const _StatusArea(
+                    // Live matches may simply not have recorded anything yet;
+                    // finished ones only lack details when the competition's
+                    // timeline isn't covered (or the key is free-tier).
+                    final text = widget.fixture.isFinished
+                        ? 'Goal details aren’t available for this match.'
+                        : 'Goal details aren’t available yet.';
+                    return _StatusArea(
                       child: _TimelineMessage(
                         icon: Icons.sports_soccer_outlined,
-                        text: 'Goal details aren’t available yet.',
+                        text: text,
                       ),
                     );
                   }

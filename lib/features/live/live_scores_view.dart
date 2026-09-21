@@ -82,12 +82,7 @@ class _LiveScoresViewState extends ConsumerState<LiveScoresView> {
               final fixture = matches[index - 1];
               return FixtureTile(
                 fixture: fixture,
-                onTap: () => showModalBottomSheet<void>(
-                  context: context,
-                  isScrollControlled: true,
-                  showDragHandle: true,
-                  builder: (_) => LiveMatchGoalsSheet(fixture: fixture),
-                ),
+                onTap: () => showMatchGoalsSheet(context, fixture),
               );
             },
           );
