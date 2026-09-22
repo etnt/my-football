@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api/football_api_client.dart';
 import '../core/api/league_season_resolver.dart';
 import '../core/api/sportsdb_v2_client.dart';
+import '../features/lineups/lineup_repository.dart';
 import '../core/storage/cache_store.dart';
 import '../core/storage/secure_key_store.dart';
 
@@ -72,6 +73,14 @@ final footballApiClientProvider = Provider<FootballApiClient>((ref) {
 /// the European leagues, single calendar years for e.g. Allsvenskan).
 final leagueSeasonResolverProvider = Provider<LeagueSeasonResolver>((ref) {
   return LeagueSeasonResolver(
+    client: ref.watch(footballApiClientProvider),
+    cache: CacheStore(ref.watch(sharedPreferencesProvider)),
+  );
+});
+
+/// Fetches match line-ups with a local cache.
+final lineupRepositoryProvider = Provider<LineupRepository>((ref) {
+  return LineupRepository(
     client: ref.watch(footballApiClientProvider),
     cache: CacheStore(ref.watch(sharedPreferencesProvider)),
   );

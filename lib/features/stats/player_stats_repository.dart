@@ -226,6 +226,31 @@ class PlayerStatsRepository {
     }
   }
 
+  /// Full profile by TheSportsDB player id (e.g. from a match line-up).
+  /// Cached like the name lookups; a miss is remembered so repeated taps on
+  /// an unknown player don't re-query.
+  Future<PlayerDetails?> lookupPlayerById(int playerId) async {
+    final key = 'stats_player_id_$playerId';
+    final cached = cache.readJson(key);
+    final cachedPlayer = _decodePlayer(cached?.data);
+    final cachedMissing = _isMissingPlayer(cached?.data);
+    if (cached != null && cached.isFresh(_playerTtl) && cachedPlayer != null) {
+      return cachedPlayer;
+    }
+    if (cached != null && cached.isFresh(_playerTtl) && cachedMissing) {
+      return null;
+    }
+    try {
+      final player = await v1.lookupPlayerById(playerId: playerId);
+      await cache.writeJson(key, player?.toJson() ?? _missingPlayer);
+      return player;
+    } catch (_) {
+      if (cachedPlayer != null) return cachedPlayer;
+      if (cachedMissing) return null;
+      rethrow;
+    }
+  }
+
   Leaderboards _board(
     Map<String, int> goals,
     Map<String, int> penalties,

@@ -10,21 +10,54 @@ Future<void> showPlayerDetailSheet(
   PlayerStatsRepository repo,
   StatLine line,
 ) {
+  return _openPlayerSheet(
+    context,
+    lookup: () => repo.lookupPlayer(line),
+    missingTitle: line.player,
+    missingTeam: line.team,
+  );
+}
+
+/// Opens the player-detail sheet for a known player id — e.g. straight from a
+/// match line-up, where the row already carries the id.
+Future<void> showPlayerDetailSheetById(
+  BuildContext context,
+  PlayerStatsRepository repo,
+  int playerId,
+) {
+  return _openPlayerSheet(context, lookup: () => repo.lookupPlayerById(playerId));
+}
+
+Future<void> _openPlayerSheet(
+  BuildContext context, {
+  required Future<PlayerDetails?> Function() lookup,
+  String? missingTitle,
+  String? missingTeam,
+}) {
   return showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
     barrierLabel: 'Dismiss player details',
     routeSettings: const RouteSettings(name: 'player-details'),
-    builder: (_) => _PlayerDetailSheet(repo: repo, line: line),
+    builder: (_) => _PlayerDetailSheet(
+      lookup: lookup,
+      missingTitle: missingTitle,
+      missingTeam: missingTeam,
+    ),
   );
 }
 
 class _PlayerDetailSheet extends StatefulWidget {
-  const _PlayerDetailSheet({required this.repo, required this.line});
+  const _PlayerDetailSheet({
+    required this.lookup,
+    this.missingTitle,
+    this.missingTeam,
+  });
 
-  final PlayerStatsRepository repo;
-  final StatLine line;
+  final Future<PlayerDetails?> Function() lookup;
+  final String? missingTitle;
+  final String? missingTeam;
 
   @override
   State<_PlayerDetailSheet> createState() => _PlayerDetailSheetState();
@@ -36,12 +69,12 @@ class _PlayerDetailSheetState extends State<_PlayerDetailSheet> {
   @override
   void initState() {
     super.initState();
-    _future = widget.repo.lookupPlayer(widget.line);
+    _future = widget.lookup();
   }
 
   void _retry() {
     if (!mounted) return;
-    setState(() => _future = widget.repo.lookupPlayer(widget.line));
+    setState(() => _future = widget.lookup());
   }
 
   @override
@@ -76,14 +109,14 @@ class _PlayerDetailSheetState extends State<_PlayerDetailSheet> {
               return _PlayerSheetStatus(
                 child: _PlayerSheetMessage(
                   icon: Icons.person_search_outlined,
-                  title: widget.line.player,
+                  title: widget.missingTitle,
                   text: 'No player profile was found.',
                 ),
               );
             }
             return _PlayerDetailBody(
               player: player,
-              fallbackTeam: widget.line.team,
+              fallbackTeam: widget.missingTeam,
             );
           },
         ),

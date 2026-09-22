@@ -112,6 +112,30 @@ const _playersHaaland = '''
 }
 ''';
 
+/// What lookupplayer.php returns for the matched player id — much fuller
+/// than the searchplayers.php hit. Shared by the #7 and #8 test groups.
+const lookupHaaland = '''
+{
+  "players": [
+    {
+      "idPlayer": "34169116",
+      "strPlayer": "Erling Haaland",
+      "strTeam": "Manchester City",
+      "strNumber": "9",
+      "strStatus": "Active",
+      "strWage": "£525,000 per week",
+      "strSigning": "€185M",
+      "strSide": "Left",
+      "strTeam2": "Norway",
+      "strBirthLocation": "Leeds, England",
+      "strHeight": "195 cm",
+      "strWeight": "192 lbs",
+      "strDescriptionEN": "Norwegian striker."
+    }
+  ]
+}
+''';
+
 void main() {
   late CacheStore cache;
   late _RoutingAdapter v1Adapter;
@@ -421,30 +445,6 @@ void main() {
   });
 
   group('player profile enrichment (issue #7)', () {
-    // What lookupplayer.php returns for the matched player id — much fuller
-    // than the searchplayers.php hit.
-    const lookupHaaland = '''
-    {
-      "players": [
-        {
-          "idPlayer": "34169116",
-          "strPlayer": "Erling Haaland",
-          "strTeam": "Manchester City",
-          "strNumber": "9",
-          "strStatus": "Active",
-          "strWage": "£525,000 per week",
-          "strSigning": "€185M",
-          "strSide": "Left",
-          "strTeam2": "Norway",
-          "strBirthLocation": "Leeds, England",
-          "strHeight": "195 cm",
-          "strWeight": "192 lbs",
-          "strDescriptionEN": "Norwegian striker."
-        }
-      ]
-    }
-    ''';
-
     test('enriches the search hit from the full lookup profile', () async {
       v1Adapter = _RoutingAdapter((path) {
         if (path.contains('searchplayers.php')) return _playersHaaland;
@@ -507,6 +507,35 @@ void main() {
 
       expect(v1Adapter.calls, callsAfterFirst);
       expect(second!.number, '9');
+    });
+  });
+
+  group('player profile by id (line-up drill-down, issue #8)', () {
+    test('looks up and caches a profile by player id', () async {
+      v1Adapter = _RoutingAdapter((path) {
+        if (path.contains('lookupplayer.php')) return lookupHaaland;
+        return '{}';
+      });
+      final repo = buildRepo(_RoutingAdapter(timelineFor));
+
+      final first = await repo.lookupPlayerById(34169116);
+      final callsAfterFirst = v1Adapter.calls;
+      final second = await repo.lookupPlayerById(34169116);
+
+      expect(first!.name, 'Erling Haaland');
+      expect(first.number, '9');
+      expect(v1Adapter.calls, callsAfterFirst); // second hit is cached
+      expect(second!.team, 'Manchester City');
+    });
+
+    test('caches a by-id miss so repeated taps do not re-query', () async {
+      v1Adapter = _RoutingAdapter((path) => '{}');
+      final repo = buildRepo(_RoutingAdapter(timelineFor));
+
+      expect(await repo.lookupPlayerById(42), isNull);
+      final callsAfterFirst = v1Adapter.calls;
+      expect(await repo.lookupPlayerById(42), isNull);
+      expect(v1Adapter.calls, callsAfterFirst);
     });
   });
 }

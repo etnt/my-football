@@ -5,6 +5,7 @@ import '../../models/fixture.dart';
 import '../../shared/widgets/api_error_view.dart';
 import '../../shared/widgets/message_view.dart';
 import '../fixtures/widgets/fixture_tile.dart';
+import '../lineups/lineup_sheet.dart';
 import '../live/live_match_goals_sheet.dart';
 import '../reminders/match_reminder.dart';
 import '../reminders/reminder_sheet.dart';
@@ -91,8 +92,11 @@ class _TeamBody extends ConsumerWidget {
           for (final f in results)
             FixtureTile(
               fixture: f,
-              // Finished results open the goals sheet (issue #5).
+              // Finished results open the goals sheet on tap (issue #5) and
+              // the match line-up on double-tap (issue #8).
               onTap: f.isFinished ? () => showMatchGoalsSheet(context, f) : null,
+              onDoubleTap:
+                  f.isFinished ? () => showLineupSheet(context, fixture: f) : null,
             ),
         ],
         if (next.isNotEmpty) ...[

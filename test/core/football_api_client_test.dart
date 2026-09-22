@@ -496,4 +496,43 @@ void main() {
       expect(await client.lookupPlayerById(playerId: 1), isNull);
     });
   });
+
+  group('FootballApiClient.getEventLineup', () {
+    const body = '''
+    {
+      "lineup": [
+        {"idPlayer":"34145506","strPlayer":"Mohamed Salah","idTeam":"133602","strTeam":"Liverpool","strPosition":"Right Winger","intSquadNumber":"11","strHome":"Yes","strSubstitute":"No","strCutout":"cutout.png","strThumb":"thumb.jpg"},
+        {"idPlayer":"34145999","strPlayer":"Sub Guy","idTeam":"133602","strTeam":"Liverpool","strPosition":"Striker","intSquadNumber":"","strHome":"Yes","strSubstitute":"Yes"},
+        {"idPlayer":"34146000","strPlayer":"Opponent Keeper","idTeam":"134301","strTeam":"Bournemouth","strPosition":"Goalkeeper","intSquadNumber":"1","strHome":"No","strSubstitute":"No","strThumb":"keeper.jpg"},
+        {"strPlayer":"Broken row"}
+      ]
+    }
+    ''';
+
+    test('parses both teams and substitutes, hits lookuplineup.php', () async {
+      final adapter = _FakeAdapter(body: body);
+      final client = _clientWith(adapter, apiKey: 'p');
+
+      final lineup = await client.getEventLineup(eventId: 2267073);
+
+      expect(lineup, hasLength(3)); // malformed row skipped
+      expect(lineup.first.name, 'Mohamed Salah');
+      expect(lineup.first.isHome, isTrue);
+      expect(lineup.first.isSubstitute, isFalse);
+      expect(lineup.first.squadNumber, '11');
+      expect(lineup.first.imageUrl, 'cutout.png'); // cutout preferred
+      expect(lineup[1].isSubstitute, isTrue);
+      expect(lineup[1].imageUrl, isEmpty);
+      expect(lineup[2].isHome, isFalse);
+      expect(lineup[2].imageUrl, 'keeper.jpg'); // thumb fallback
+      expect(adapter.lastOptions?.path, '/p/lookuplineup.php');
+      expect(adapter.lastOptions?.queryParameters['id'], 2267073);
+    });
+
+    test('returns an empty list when there is no line-up', () async {
+      final client = _clientWith(_FakeAdapter(body: '{"lineup": null}'));
+
+      expect(await client.getEventLineup(eventId: 1), isEmpty);
+    });
+  });
 }

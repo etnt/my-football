@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../models/fixture.dart';
 import '../../models/league.dart';
+import '../../models/lineup_player.dart';
 import '../../models/player_details.dart';
 import '../../models/team_standing.dart';
 import 'api_exception.dart';
@@ -199,6 +200,21 @@ class FootballApiClient {
       return PlayerDetails.fromApiJson(player);
     }
     return null;
+  }
+
+  /// The line-up rows for a match (`lookuplineup.php`): players from BOTH
+  /// teams in one list, each tagged with [LineupPlayer.isHome]/[isSubstitute].
+  /// Empty when the match has no recorded line-up (coverage varies by
+  /// competition — e.g. none for Allsvenskan).
+  Future<List<LineupPlayer>> getEventLineup({required int eventId}) async {
+    final body = await _get('/$_key/lookuplineup.php', query: {'id': eventId});
+    final lineup = body['lineup'];
+    if (lineup is! List) return const [];
+    return lineup
+        .whereType<Map<String, dynamic>>()
+        .map(LineupPlayer.fromApiJson)
+        .whereType<LineupPlayer>()
+        .toList();
   }
 
   Future<Map<String, dynamic>> _get(

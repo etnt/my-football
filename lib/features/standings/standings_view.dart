@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/app_providers.dart';
 import '../../shared/widgets/api_error_view.dart';
 import '../../shared/widgets/message_view.dart';
+import '../lineups/lineup_sheet.dart';
 import '../settings/settings_screen.dart';
 import '../team/team_detail_screen.dart';
 import 'standings_providers.dart';
@@ -42,6 +43,17 @@ class StandingsView extends ConsumerWidget {
                           ),
                         ),
                       ),
+                      // Double-tap shows the team's latest line-up (issue #8).
+                      // Premium only: line-ups are capped on the free key and
+                      // the player drill-down needs the Premium profile repo.
+                      onDoubleTapTeam: isPremium
+                          ? (team) => showLatestTeamLineup(
+                                context,
+                                ref,
+                                teamId: team.teamId,
+                                teamName: team.teamName,
+                              )
+                          : null,
                     ),
                   ),
                 ],

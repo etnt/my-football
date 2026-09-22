@@ -24,6 +24,9 @@ void main() {
     );
 
     await tester.tap(find.text('Arsenal'));
+    // onTap is delayed by the double-tap window (the finished row also
+    // double-taps into the line-up sheet, issue #8) — flush it.
+    await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpAndSettle();
 
     // The sheet header repeats the match with its score…
@@ -61,6 +64,7 @@ void main() {
     await _pumpView(tester, fixtures: [_finished(), _upcoming()]);
 
     await tester.tap(find.text('Arsenal'));
+    await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpAndSettle();
 
     // Finished matches must not use the live-oriented "yet" wording.

@@ -4,10 +4,19 @@ import '../../../models/team_standing.dart';
 
 /// A compact, mobile-friendly standings table.
 class StandingsTable extends StatelessWidget {
-  const StandingsTable({super.key, required this.standings, this.onTapTeam});
+  const StandingsTable({
+    super.key,
+    required this.standings,
+    this.onTapTeam,
+    this.onDoubleTapTeam,
+  });
 
   final List<TeamStanding> standings;
   final void Function(TeamStanding standing)? onTapTeam;
+
+  /// Double-tap shows the team's latest line-up (issue #8). Only provided in
+  /// Premium mode; absent while the single tap still opens the team screen.
+  final void Function(TeamStanding standing)? onDoubleTapTeam;
 
   @override
   Widget build(BuildContext context) {
@@ -20,6 +29,8 @@ class StandingsTable extends StatelessWidget {
         return _StandingRow(
           standing: standing,
           onTap: onTapTeam == null ? null : () => onTapTeam!(standing),
+          onDoubleTap:
+              onDoubleTapTeam == null ? null : () => onDoubleTapTeam!(standing),
         );
       },
     );
@@ -53,15 +64,17 @@ class _HeaderRow extends StatelessWidget {
 }
 
 class _StandingRow extends StatelessWidget {
-  const _StandingRow({required this.standing, this.onTap});
+  const _StandingRow({required this.standing, this.onTap, this.onDoubleTap});
 
   final TeamStanding standing;
   final VoidCallback? onTap;
+  final VoidCallback? onDoubleTap;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
+      onDoubleTap: onDoubleTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
