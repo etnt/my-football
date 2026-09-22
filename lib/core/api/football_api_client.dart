@@ -185,6 +185,22 @@ class FootballApiClient {
         .toList();
   }
 
+  /// The full profile for a player id (`lookupplayer.php`). Carries several
+  /// fields the name search omits — shirt number, wage, signing fee, preferred
+  /// foot, national team, birthplace, measurements, bio and socials — so the
+  /// player sheet enriches its search hit with this. Null when the id is
+  /// unknown or malformed.
+  Future<PlayerDetails?> lookupPlayerById({required int playerId}) async {
+    final body = await _get('/$_key/lookupplayer.php', query: {'id': playerId});
+    final players = body['players'];
+    if (players is! List) return null;
+    for (final player in players) {
+      if (player is! Map<String, dynamic>) continue;
+      return PlayerDetails.fromApiJson(player);
+    }
+    return null;
+  }
+
   Future<Map<String, dynamic>> _get(
     String path, {
     Map<String, dynamic>? query,

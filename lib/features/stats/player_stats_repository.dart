@@ -183,7 +183,9 @@ class PlayerStatsRepository {
     final player = line.player.trim();
     if (player.isEmpty) return null;
     final team = line.team?.trim() ?? '';
-    final key = 'stats_player_${_cachePart(player)}_${_cachePart(team)}';
+    // "v2" because issue #7 enriched profiles with lookupplayer.php; bumping
+    // the key serves full profiles immediately instead of after the old TTL.
+    final key = 'stats_player_v2_${_cachePart(player)}_${_cachePart(team)}';
     final cached = cache.readJson(key);
     final cachedPlayer = _decodePlayer(cached?.data);
     final cachedMissing = _isMissingPlayer(cached?.data);
@@ -197,16 +199,30 @@ class PlayerStatsRepository {
     try {
       final players = await v1.searchPlayers(player);
       final best = _bestPlayerMatch(players, player: player, team: team);
-      if (best != null) {
-        await cache.writeJson(key, best.toJson());
-      } else {
+      if (best == null) {
         await cache.writeJson(key, _missingPlayer);
+        return null;
       }
-      return best;
+      final full = await _enrich(best);
+      await cache.writeJson(key, full.toJson());
+      return full;
     } catch (_) {
       if (cachedPlayer != null) return cachedPlayer;
       if (cachedMissing) return null;
       rethrow;
+    }
+  }
+
+  /// Best-effort enrichment: fills the search hit's missing fields from the
+  /// full `lookupplayer.php` profile (shirt number, measurements, wage, …).
+  /// Any lookup failure simply keeps the sparser search profile.
+  Future<PlayerDetails> _enrich(PlayerDetails searched) async {
+    try {
+      final full = await v1.lookupPlayerById(playerId: searched.id);
+      if (full == null) return searched;
+      return full.mergeFallback(searched);
+    } on ApiException catch (_) {
+      return searched;
     }
   }
 

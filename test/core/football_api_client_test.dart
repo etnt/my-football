@@ -435,4 +435,65 @@ void main() {
       );
     });
   });
+
+  group('FootballApiClient.lookupPlayerById', () {
+    const body = '''
+    {
+      "players": [
+        {
+          "idPlayer": "34169116",
+          "strPlayer": "Erling Haaland",
+          "strTeam": "Manchester City",
+          "strNumber": "9",
+          "strStatus": "Active",
+          "strWage": "£525,000 per week",
+          "strSigning": "€185M",
+          "strSide": "Left",
+          "strTeam2": "Norway",
+          "strBirthLocation": "Leeds, England",
+          "strHeight": "195 cm",
+          "strWeight": "192 lbs",
+          "strDescriptionEN": "Norwegian striker."
+        }
+      ]
+    }
+    ''';
+
+    test('parses the full profile and hits lookupplayer.php', () async {
+      final adapter = _FakeAdapter(body: body);
+      final client = _clientWith(adapter, apiKey: 'p');
+
+      final player = await client.lookupPlayerById(playerId: 34169116);
+
+      expect(player, isNotNull);
+      expect(player!.name, 'Erling Haaland');
+      expect(player.number, '9');
+      expect(player.wage, '£525,000 per week');
+      expect(player.signing, '€185M');
+      expect(player.preferredFoot, 'Left');
+      expect(player.nationalTeam, 'Norway');
+      expect(player.birthLocation, 'Leeds, England');
+      expect(player.height, '195 cm');
+      expect(player.description, 'Norwegian striker.');
+      expect(adapter.lastOptions?.path, '/p/lookupplayer.php');
+      expect(adapter.lastOptions?.queryParameters['id'], 34169116);
+    });
+
+    test('falls back to strSign when strSigning is absent', () async {
+      final client = _clientWith(
+        _FakeAdapter(
+          body:
+              '{"players":[{"idPlayer":"1","strPlayer":"Someone","strSign":"£5M"}]}',
+        ),
+      );
+
+      expect((await client.lookupPlayerById(playerId: 1))!.signing, '£5M');
+    });
+
+    test('returns null when the player is unknown', () async {
+      final client = _clientWith(_FakeAdapter(body: '{}'));
+
+      expect(await client.lookupPlayerById(playerId: 1), isNull);
+    });
+  });
 }

@@ -227,7 +227,7 @@ void main() {
       () async {
     final repo = buildRepo(_RoutingAdapter(timelineFor));
     await cache.writeJson(
-      'stats_player_erling_haaland_Erling%20Haaland_'
+      'stats_player_v2_erling_haaland_Erling%20Haaland_'
       'manchester_city_Manchester%20City',
       {'idPlayer': ''},
     );
@@ -238,7 +238,8 @@ void main() {
 
     expect(player, isNotNull);
     expect(player!.team, 'Manchester City');
-    expect(v1Adapter.calls, 1);
+    // One search call + one full-profile lookup call.
+    expect(v1Adapter.calls, 2);
   });
 
   test('caches player misses so repeated lookups do not refetch', () async {
@@ -416,6 +417,96 @@ void main() {
 
       expect(unavailable, isFalse);
       expect(last!.board.scorers.any((s) => s.player == 'Haaland'), isTrue);
+    });
+  });
+
+  group('player profile enrichment (issue #7)', () {
+    // What lookupplayer.php returns for the matched player id — much fuller
+    // than the searchplayers.php hit.
+    const lookupHaaland = '''
+    {
+      "players": [
+        {
+          "idPlayer": "34169116",
+          "strPlayer": "Erling Haaland",
+          "strTeam": "Manchester City",
+          "strNumber": "9",
+          "strStatus": "Active",
+          "strWage": "£525,000 per week",
+          "strSigning": "€185M",
+          "strSide": "Left",
+          "strTeam2": "Norway",
+          "strBirthLocation": "Leeds, England",
+          "strHeight": "195 cm",
+          "strWeight": "192 lbs",
+          "strDescriptionEN": "Norwegian striker."
+        }
+      ]
+    }
+    ''';
+
+    test('enriches the search hit from the full lookup profile', () async {
+      v1Adapter = _RoutingAdapter((path) {
+        if (path.contains('searchplayers.php')) return _playersHaaland;
+        if (path.contains('lookupplayer.php')) return lookupHaaland;
+        return '{}';
+      });
+      final repo = buildRepo(_RoutingAdapter(timelineFor));
+
+      final player = await repo.lookupPlayer(
+        const StatLine('Erling Haaland', 3, team: 'Manchester City'),
+      );
+
+      expect(player, isNotNull);
+      // Fields only the full profile carries…
+      expect(player!.number, '9');
+      expect(player.wage, '£525,000 per week');
+      expect(player.signing, '€185M');
+      expect(player.preferredFoot, 'Left');
+      expect(player.nationalTeam, 'Norway');
+      expect(player.birthLocation, 'Leeds, England');
+      expect(player.height, '195 cm');
+      expect(player.description, 'Norwegian striker.');
+      // …and fields only the search hit carries survive the merge.
+      expect(player.id, 34169116); // the lookup profile's id wins
+      expect(player.team, 'Manchester City');
+      expect(player.position, 'Forward');
+    });
+
+    test('keeps the search profile when the lookup adds nothing', () async {
+      v1Adapter = _RoutingAdapter((path) {
+        if (path.contains('searchplayers.php')) return _playersHaaland;
+        return '{}'; // lookupplayer.php has no data for this player
+      });
+      final repo = buildRepo(_RoutingAdapter(timelineFor));
+
+      final player = await repo.lookupPlayer(
+        const StatLine('Erling Haaland', 3, team: 'Manchester City'),
+      );
+
+      expect(player, isNotNull);
+      expect(player!.name, 'Erling Haaland');
+      expect(player.team, 'Manchester City');
+      expect(player.number, isEmpty);
+      expect(player.wage, isEmpty);
+    });
+
+    test('caches the enriched profile so the second call hits no API',
+        () async {
+      v1Adapter = _RoutingAdapter((path) {
+        if (path.contains('searchplayers.php')) return _playersHaaland;
+        if (path.contains('lookupplayer.php')) return lookupHaaland;
+        return '{}';
+      });
+      final repo = buildRepo(_RoutingAdapter(timelineFor));
+      const line = StatLine('Erling Haaland', 3, team: 'Manchester City');
+
+      await repo.lookupPlayer(line);
+      final callsAfterFirst = v1Adapter.calls;
+      final second = await repo.lookupPlayer(line);
+
+      expect(v1Adapter.calls, callsAfterFirst);
+      expect(second!.number, '9');
     });
   });
 }

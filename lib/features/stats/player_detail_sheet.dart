@@ -104,13 +104,34 @@ class _PlayerDetailBody extends StatelessWidget {
     final info = <({String label, String value})>[
       if (player.position.isNotEmpty)
         (label: 'Position', value: player.position),
+      if (player.number.isNotEmpty)
+        (label: 'Squad number', value: player.number),
       if (player.nationality.isNotEmpty)
         (label: 'Nationality', value: player.nationality),
-      if (player.dateBorn.isNotEmpty) (label: 'Born', value: player.dateBorn),
+      if (player.nationalTeam.isNotEmpty)
+        (label: 'National team', value: player.nationalTeam),
+      if (player.dateBorn.isNotEmpty)
+        (label: 'Born', value: _formatBorn(player.dateBorn)),
       if (player.birthLocation.isNotEmpty)
         (label: 'Birthplace', value: player.birthLocation),
       if (player.height.isNotEmpty) (label: 'Height', value: player.height),
       if (player.weight.isNotEmpty) (label: 'Weight', value: player.weight),
+      if (player.preferredFoot.isNotEmpty)
+        (label: 'Preferred foot', value: player.preferredFoot),
+      // "Active" is the boring default; surface the interesting statuses.
+      if (_interestingStatus != null)
+        (label: 'Status', value: _interestingStatus!),
+      if (player.signing.isNotEmpty)
+        (label: 'Signed for', value: player.signing),
+      if (player.wage.isNotEmpty) (label: 'Wage', value: player.wage),
+      if (player.alternateName.isNotEmpty)
+        (label: 'Also known as', value: player.alternateName),
+      if (player.instagram.isNotEmpty)
+        (label: 'Instagram', value: player.instagram),
+      if (player.twitter.isNotEmpty)
+        (label: 'Twitter/X', value: player.twitter),
+      if (player.website.isNotEmpty)
+        (label: 'Website', value: player.website),
     ];
 
     return ListView(
@@ -154,6 +175,23 @@ class _PlayerDetailBody extends StatelessWidget {
         ],
       ],
     );
+  }
+  /// "2000-07-21" → "21 Jul 2000"; the raw value when unparseable.
+  static String _formatBorn(String iso) {
+    final date = DateTime.tryParse(iso);
+    if (date == null) return iso;
+    return '${date.day} ${_months[date.month - 1]} ${date.year}';
+  }
+
+  static const _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', //
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
+  String? get _interestingStatus {
+    final status = player.status.trim();
+    if (status.isEmpty || status.toLowerCase() == 'active') return null;
+    return status;
   }
 }
 
