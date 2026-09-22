@@ -24,6 +24,7 @@ richer team data.
 <a href="screenshots/live-scorers.jpeg"><img src="screenshots/live-scorers.jpeg" alt="Live scorers screenshot" width="19%"></a>
 <a href="screenshots/config.jpeg"><img src="screenshots/config.jpeg" alt="Config screenshot" width="19%"></a>
 <a href="screenshots/player_info.jpeg"><img src="screenshots/player_info.jpeg" alt="Player info screenshot" width="19%"></a>
+<a href="screenshots/lineup.jpeg"><img src="screenshots/lineup.jpeg" alt="Lineup screenshot" width="19%"></a>
 
 ## Download & install (Android)
 
