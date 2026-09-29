@@ -1,15 +1,20 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../config/app_version.dart';
 import '../../models/league.dart';
 import '../../providers/app_providers.dart';
+import '../../providers/update_provider.dart';
 import '../fixtures/fixtures_view.dart';
 import '../live/live_scores_view.dart';
 import '../settings/settings_screen.dart';
 import '../standings/standings_providers.dart';
 import '../standings/standings_view.dart';
 import '../stats/stats_view.dart';
+import 'update_prompt.dart';
 
 /// App shell: a shared app bar and league/season selector, with bottom-nav
 /// tabs switching between the table, matches and (Premium) live views.
@@ -26,10 +31,36 @@ class HomeShell extends ConsumerStatefulWidget {
 
 class _HomeShellState extends ConsumerState<HomeShell> {
   int _index = 0;
+  bool _updateCheckStarted = false;
 
   // Seasons offered in the picker (starting year). The current season may be
   // sparse; older seasons usually have a complete table.
   static const _seasons = [2026, 2025, 2024, 2023, 2022, 2021];
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkForUpdate());
+  }
+
+  void _checkForUpdate() {
+    if (_updateCheckStarted || !mounted) return;
+    _updateCheckStarted = true;
+    unawaited(
+      maybeShowUpdateDialog(
+        context,
+        checker: ref.read(releaseCheckerProvider),
+        onUpdate: (info) async {
+          final uri = Uri.tryParse(info.releasePageUrl);
+          if (uri == null || uri.scheme != 'https') return;
+          try {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          } catch (_) {
+            // A failed browser launch must not interrupt the app.
+          }
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -102,9 +133,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           IconButton(
             icon: const Icon(Icons.settings),
             tooltip: 'Settings',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const SettingsScreen()),
-            ),
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
           ),
         ],
       ),
@@ -145,10 +176,7 @@ class _LeaguePicker extends ConsumerWidget {
             value: value,
             items: [
               for (final league in followed)
-                DropdownMenuItem(
-                  value: league,
-                  child: Text(league.label),
-                ),
+                DropdownMenuItem(value: league, child: Text(league.label)),
             ],
             onChanged: (league) {
               if (league != null) {
@@ -205,8 +233,8 @@ class _SeasonPicker extends ConsumerWidget {
               'Data by TheSportsDB',
               textAlign: TextAlign.end,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
+                color: Theme.of(context).colorScheme.outline,
+              ),
             ),
           ),
         ],

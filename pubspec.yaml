@@ -42,6 +42,10 @@ dependencies:
   timezone: ^0.11.1
   flutter_timezone: ^4.1.0
   unorm_dart: ^0.3.2
+  auto_upgrade:
+    git:
+      url: https://github.com/etnt/auto_upgrade.git
+  url_launcher: ^6.3.0
 
 dev_dependencies:
   flutter_test:

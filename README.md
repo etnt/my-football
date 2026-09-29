@@ -41,6 +41,11 @@ Prebuilt Android APKs are published on the repository's
 4. Launch the app. To enable the premium features, open **Settings** and paste a
    TheSportsDB API key (see *Free vs. premium* below).
 
+On release builds, My Football checks GitHub for a newer release after startup,
+at most once every 24 hours. If one is available, the app offers to open its
+release page in your browser; development builds and offline check failures stay
+silent.
+
 > **iPhone:** direct downloads are not available. Apple does not permit
 > installing apps outside the App Store, so iOS requires building from source on
 > a Mac (see below) or App Store distribution.
