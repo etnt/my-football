@@ -1,8 +1,6 @@
 # My Football
 > Track the major football leagues
 
-<a href='https://ko-fi.com/G8L3263HSM' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
-
 My Football is a Flutter app for following the big European football leagues.
 It shows live league **standings**, **fixtures** (recent results and upcoming
 matches grouped by matchweek), and per-team **schedules**. Adding a
@@ -25,6 +23,65 @@ richer team data.
 <a href="screenshots/config.jpeg"><img src="screenshots/config.jpeg" alt="Config screenshot" width="19%"></a>
 <a href="screenshots/player_info.jpeg"><img src="screenshots/player_info.jpeg" alt="Player info screenshot" width="19%"></a>
 <a href="screenshots/lineup.jpeg"><img src="screenshots/lineup.jpeg" alt="Lineup screenshot" width="19%"></a>
+
+## Using the app
+
+### Choose a league and season
+
+- Tap `League` above the screen to choose a followed league.
+- Tap `Season` to choose the season to display.
+- Open `Settings` to change followed leagues. Choose a country, then select or clear leagues.
+- Keep at least one league selected.
+
+### Move between screens
+
+- Tap `Table` to view league standings.
+- Tap `Matches` to view results and upcoming fixtures.
+- If you have a Premium key, tap `Stats` or `Live` to open those screens.
+- Tap the settings icon in the top-right corner to open `Settings`.
+
+### Table
+
+- Tap a team row to open that team's details and schedule.
+- With a Premium key, double-tap a team row to open the team's latest line-up.
+- Pull down on the table to refresh the standings.
+
+### Matches and team schedules
+
+- Tap `Results` or `Upcoming` to switch between finished matches and future fixtures.
+- Tap a matchweek heading to expand or collapse its fixtures.
+- In `Results`, tap a finished match to view its goal details.
+- Double-tap a finished match to view its line-up.
+- In `Upcoming`, double-tap a future match to set a kick-off reminder.
+- A single tap on an upcoming match does not open it.
+- A reminder is available only before kick-off for a match that is not postponed.
+- Choose `Off`, `15 min`, `30 min`, `60 min`, or `120 min` before kick-off.
+- Tap `Save` to schedule the reminder. Choose `Off` and save to cancel it.
+- For a new reminder, `15 min` is selected by default.
+- Allow notifications when prompted. Without permission, reminders stay silent until you enable notifications in system settings.
+- On a team's details page, tap a finished match for goal details.
+- Double-tap a finished match to view its line-up.
+- Double-tap an eligible upcoming match to set a reminder.
+- Pull down on a match list or team schedule to refresh it.
+
+### Stats and Live
+
+- In `Stats`, tap `Scorers`, `Assists`, or `Cards` to choose a leaderboard.
+- Tap a player row to open that player's details. Player details need a Premium key.
+- In a match line-up, tap the team selector to switch between the two teams.
+- Tap a player row to open details when they are available.
+- In `Live`, tap a match to view its goal details. Scores refresh while this screen is open.
+- The first time you open `Live`, allow notifications to receive goal alerts while this screen is open.
+- Pull down on `Stats` or `Live` to refresh its data.
+
+### Settings
+
+- To add a Premium key, enter it in `Settings` and tap `Save`.
+- Tap `Validate key` to test the key.
+- Tap the eye icon to show or hide the key.
+- Tap `Use free key` to remove the saved key.
+- To follow a league, choose its country in `Settings`, then tap its checkbox.
+- Tap a selected checkbox to unfollow that league. Keep at least one league selected.
 
 ## Download & install (Android)
 
