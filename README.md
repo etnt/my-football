@@ -37,6 +37,7 @@ richer team data.
 
 - Tap `Table` to view league standings.
 - Tap `Matches` to view results and upcoming fixtures.
+- Tap `News` to see headlines for the selected league.
 - If you have a Premium key, tap `Stats` or `Live` to open those screens.
 - Tap the settings icon in the top-right corner to open `Settings`.
 
@@ -64,6 +65,17 @@ richer team data.
 - Double-tap an eligible upcoming match to set a reminder.
 - Pull down on a match list or team schedule to refresh it.
 
+### News
+
+- Add your own free GNews API key in `Settings` to use the News tab. News is
+  available to Free and Premium users.
+- Pull down on News to fetch current headlines for the selected league. Opening
+  the tab does not make a network request; saved headlines are shown first.
+- Tap a headline to expand its description, then tap the article button to open
+  the source in the in-app browser.
+- Set the headline age limit to 1, 3, or 7 days in `Settings` → `News max age`.
+  The default is 1 day.
+
 ### Stats and Live
 
 - In `Stats`, tap `Scorers`, `Assists`, or `Cards` to choose a leaderboard.
@@ -80,6 +92,8 @@ richer team data.
 - Tap `Validate key` to test the key.
 - Tap the eye icon to show or hide the key.
 - Tap `Use free key` to remove the saved key.
+- Add and validate your own GNews key in `Settings` to enable News.
+- Set `News max age` in `Settings` to 1, 3, or 7 days (default: 1 day).
 - To follow a league, choose its country in `Settings`, then tap its checkbox.
 - Tap a selected checkbox to unfollow that league. Keep at least one league selected.
 

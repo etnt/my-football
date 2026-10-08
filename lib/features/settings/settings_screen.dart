@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/football_api_client.dart';
+import '../news/news_api_client.dart';
 import '../../models/league.dart';
 import '../../providers/app_providers.dart';
 import '../standings/standings_providers.dart';
@@ -17,9 +18,16 @@ class SettingsScreen extends ConsumerStatefulWidget {
 /// Outcome of checking a key against the standings endpoint.
 enum _KeyStatus { premium, limited, free, invalid }
 
+enum _NewsKeyStatus { valid, invalid, unavailable, empty }
+
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _controller = TextEditingController();
+  final _newsController = TextEditingController();
   bool _obscure = true;
+  bool _newsObscure = true;
+  bool _newsPrefilled = false;
+  bool _validatingNews = false;
+  _NewsKeyStatus? _newsStatus;
   bool _prefilled = false;
   bool _validating = false;
   _KeyStatus? _status;
@@ -27,6 +35,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   void dispose() {
     _controller.dispose();
+    _newsController.dispose();
     super.dispose();
   }
 
@@ -35,9 +44,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (key.isEmpty) return;
     await ref.read(apiKeyProvider.notifier).setKey(key);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Premium key saved.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Premium key saved.')));
     }
   }
 
@@ -49,6 +58,61 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Reverted to the free key.')),
       );
+    }
+  }
+
+  Future<void> _saveNewsKey() async {
+    final key = _newsController.text.trim();
+    if (key.isEmpty) return;
+    await ref.read(newsApiKeyProvider.notifier).setKey(key);
+    if (mounted) {
+      setState(() => _newsStatus = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('News API key saved. Saved headlines were cleared.'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _clearNewsKey() async {
+    await ref.read(newsApiKeyProvider.notifier).clear();
+    _newsController.clear();
+    if (mounted) {
+      setState(() => _newsStatus = null);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('News API key cleared.')));
+    }
+  }
+
+  Future<void> _validateNewsKey() async {
+    final key = _newsController.text.trim();
+    if (key.isEmpty) {
+      setState(() => _newsStatus = _NewsKeyStatus.empty);
+      return;
+    }
+    setState(() {
+      _validatingNews = true;
+      _newsStatus = null;
+    });
+    final client = ref.read(newsApiClientProvider);
+    _NewsKeyStatus result;
+    try {
+      await client.validateApiKey(key);
+      result = _NewsKeyStatus.valid;
+    } on NewsApiException catch (error) {
+      result = error.statusCode == 401 || error.statusCode == 403
+          ? _NewsKeyStatus.invalid
+          : _NewsKeyStatus.unavailable;
+    } catch (_) {
+      result = _NewsKeyStatus.unavailable;
+    }
+    if (mounted) {
+      setState(() {
+        _validatingNews = false;
+        _newsStatus = result;
+      });
     }
   }
 
@@ -100,6 +164,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
     final hasKey = (storedKey ?? '').isNotEmpty;
     final isPremium = ref.watch(isPremiumProvider);
+    final newsKey = ref.watch(newsApiKeyProvider).valueOrNull;
+    if (!_newsPrefilled && newsKey != null) {
+      _newsController.text = newsKey;
+      _newsPrefilled = true;
+    }
+    final hasNewsKey = (newsKey ?? '').isNotEmpty;
+    final maxAgeDays = ref.watch(newsMaxAgeDaysProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
@@ -111,8 +182,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           Row(
             children: [
               Expanded(
-                child: Text('TheSportsDB Premium key',
-                    style: Theme.of(context).textTheme.titleMedium),
+                child: Text(
+                  'TheSportsDB Premium key',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
               ),
               _ModeChip(isPremium: isPremium),
             ],
@@ -174,6 +247,104 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             const SizedBox(height: 12),
             _StatusBanner(status: _status!),
           ],
+          const Divider(height: 32),
+          Text(
+            'News (GNews) API key',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'News is available to everyone with a personal GNews API key. '
+            'The key is stored on this device in app preferences only.',
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _newsController,
+            obscureText: _newsObscure,
+            autocorrect: false,
+            enableSuggestions: false,
+            decoration: InputDecoration(
+              labelText: 'News API key',
+              border: const OutlineInputBorder(),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _newsObscure ? Icons.visibility : Icons.visibility_off,
+                ),
+                onPressed: () => setState(() => _newsObscure = !_newsObscure),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: _saveNewsKey,
+                  icon: const Icon(Icons.save),
+                  label: const Text('Save news key'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              OutlinedButton.icon(
+                onPressed: hasNewsKey ? _clearNewsKey : null,
+                icon: const Icon(Icons.delete_outline),
+                label: const Text('Clear'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _validatingNews ? null : _validateNewsKey,
+            icon: _validatingNews
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.verified_outlined),
+            label: Text(_validatingNews ? 'Checking…' : 'Validate news key'),
+          ),
+          if (_newsStatus != null)
+            Chip(
+              avatar: Icon(
+                _newsStatus == _NewsKeyStatus.valid
+                    ? Icons.check_circle
+                    : _newsStatus == _NewsKeyStatus.invalid ||
+                          _newsStatus == _NewsKeyStatus.empty
+                    ? Icons.error
+                    : Icons.cloud_off,
+                size: 18,
+              ),
+              label: Text(switch (_newsStatus!) {
+                _NewsKeyStatus.valid => 'GNews key is valid',
+                _NewsKeyStatus.invalid =>
+                  'GNews rejected this key. Check it and try again.',
+                _NewsKeyStatus.empty => 'Enter a GNews API key to validate it.',
+                _NewsKeyStatus.unavailable =>
+                  'Could not check the key. Check your connection or try again later.',
+              }),
+            ),
+          const Divider(height: 32),
+          Text('News max age', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          const Text(
+            'Only show and store headlines published within this period.',
+          ),
+          DropdownButton<int>(
+            value: maxAgeDays,
+            items: const [1, 3, 7]
+                .map(
+                  (days) => DropdownMenuItem(
+                    value: days,
+                    child: Text('$days ${days == 1 ? 'day' : 'days'}'),
+                  ),
+                )
+                .toList(),
+            onChanged: (days) {
+              if (days == null) return;
+              ref.read(newsMaxAgeDaysProvider.notifier).setDays(days);
+            },
+          ),
         ],
       ),
     );
@@ -198,11 +369,13 @@ class _ModeChip extends StatelessWidget {
         color: bg,
         borderRadius: BorderRadius.circular(999),
       ),
-      child: Text(label,
-          style: Theme.of(context)
-              .textTheme
-              .labelMedium
-              ?.copyWith(color: fg, fontWeight: FontWeight.w600)),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: fg,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }
@@ -218,25 +391,25 @@ class _StatusBanner extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final (IconData icon, Color color, String text) = switch (status) {
       _KeyStatus.premium => (
-          Icons.check_circle,
-          scheme.primary,
-          'Premium active — full tables, fixtures and live scores unlocked.',
-        ),
+        Icons.check_circle,
+        scheme.primary,
+        'Premium active — full tables, fixtures and live scores unlocked.',
+      ),
       _KeyStatus.free => (
-          Icons.info_outline,
-          scheme.outline,
-          'Free key in use — tables are limited to 5 rows.',
-        ),
+        Icons.info_outline,
+        scheme.outline,
+        'Free key in use — tables are limited to 5 rows.',
+      ),
       _KeyStatus.limited => (
-          Icons.warning_amber,
-          scheme.tertiary,
-          'Key works but returned a limited table. It may not be a Premium key.',
-        ),
+        Icons.warning_amber,
+        scheme.tertiary,
+        'Key works but returned a limited table. It may not be a Premium key.',
+      ),
       _KeyStatus.invalid => (
-          Icons.error_outline,
-          scheme.error,
-          'That key was rejected. Check it and try again.',
-        ),
+        Icons.error_outline,
+        scheme.error,
+        'That key was rejected. Check it and try again.',
+      ),
     };
 
     return Row(
@@ -245,11 +418,12 @@ class _StatusBanner extends StatelessWidget {
         Icon(icon, color: color, size: 20),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(text,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: color)),
+          child: Text(
+            text,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: color),
+          ),
         ),
       ],
     );
@@ -279,8 +453,10 @@ class _FollowedLeaguesSectionState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Followed leagues',
-            style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          'Followed leagues',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
         const SizedBox(height: 8),
         const Text(
           'Pick a country or region — e.g. Europe for the UEFA Champions '
@@ -298,14 +474,16 @@ class _FollowedLeaguesSectionState
             children: [
               for (final league in followed)
                 InputChip(
-                  label: Text(league.country == null
-                      ? league.name
-                      : '${league.name} · ${league.country}'),
+                  label: Text(
+                    league.country == null
+                        ? league.name
+                        : '${league.name} · ${league.country}',
+                  ),
                   onDeleted: followed.length == 1
                       ? null
                       : () => ref
-                          .read(followedLeaguesProvider.notifier)
-                          .toggle(league),
+                            .read(followedLeaguesProvider.notifier)
+                            .toggle(league),
                 ),
             ],
           ),
@@ -375,7 +553,8 @@ class _LeaguesForCountry extends ConsumerWidget {
                 title: Text(league.name),
                 value: followed.any((l) => l.id == league.id),
                 onChanged: (_) {
-                  final isLastFollowed = followed.length == 1 &&
+                  final isLastFollowed =
+                      followed.length == 1 &&
                       followed.any((l) => l.id == league.id);
                   // Keep at least one league followed.
                   if (isLastFollowed) return;
@@ -404,15 +583,15 @@ class _CatalogError extends StatelessWidget {
         Icon(Icons.error_outline, color: scheme.error, size: 20),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(message,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: scheme.error)),
+          child: Text(
+            message,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: scheme.error),
+          ),
         ),
         TextButton(onPressed: onRetry, child: const Text('Retry')),
       ],
     );
   }
 }
-

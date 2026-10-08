@@ -27,6 +27,15 @@ Network responses are cached in `shared_preferences` with a short TTL to reduce
 requests and keep the UI responsive; the cache is cleared automatically when the
 API key changes.
 
+## News
+
+The News tab searches GNews for the selected league when the user pulls to
+refresh. It does not fetch on tab open. Users provide their own GNews API key in
+Settings; it is stored in SharedPreferences on the device and is not part of
+TheSportsDB Premium. Saved headlines are kept per league and age-filtered using
+the `News max age` setting in Settings (1, 3, or 7 days; default 1 day).
+Article links open in the platform in-app browser. No new package is needed.
+
 ## Project structure
 
 The code follows a feature-first layout under `lib/`:
@@ -45,6 +54,7 @@ lib/
 │  ├─ standings/                # league table
 │  ├─ fixtures/                 # results & upcoming, grouped by matchweek
 │  ├─ live/                     # live scores (premium)
+│  ├─ news/                     # GNews headlines, store and refresh UI
 │  ├─ stats/                    # scorers, assists & cards leaderboards (premium)
 │  ├─ team/                     # team detail & schedule
 │  └─ settings/                 # API key entry & validation
@@ -62,7 +72,7 @@ Each feature groups its `view`, `repository`, and `providers` together.
 - **[flutter_secure_storage](https://pub.dev/packages/flutter_secure_storage)** —
   encrypted on-device storage for the premium API key.
 - **[shared_preferences](https://pub.dev/packages/shared_preferences)** —
-  lightweight TTL response cache.
+  lightweight TTL response cache, News settings and saved headline fragments.
 - **[flutter_local_notifications](https://pub.dev/packages/flutter_local_notifications)** —
   local goal alerts while the Live tab is open.
 

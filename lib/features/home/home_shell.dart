@@ -10,6 +10,7 @@ import '../../providers/app_providers.dart';
 import '../../providers/update_provider.dart';
 import '../fixtures/fixtures_view.dart';
 import '../live/live_scores_view.dart';
+import '../news/news_view.dart';
 import '../settings/settings_screen.dart';
 import '../standings/standings_providers.dart';
 import '../standings/standings_view.dart';
@@ -17,7 +18,7 @@ import '../stats/stats_view.dart';
 import 'update_prompt.dart';
 
 /// App shell: a shared app bar and league/season selector, with bottom-nav
-/// tabs switching between the table, matches and (Premium) live views.
+/// tabs switching between the table, matches, news and (Premium) live views.
 ///
 /// The body is swapped (not stacked) so the inactive tab's data provider is
 /// disposed — keeping API usage low. Cached data means switching tabs back
@@ -84,6 +85,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     final bodies = <Widget>[
       const StandingsView(),
       const FixturesView(),
+      const NewsView(),
       if (isPremium) const StatsView(),
       if (isPremium) const LiveScoresView(),
     ];
@@ -97,6 +99,11 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         icon: Icon(Icons.sports_soccer_outlined),
         selectedIcon: Icon(Icons.sports_soccer),
         label: 'Matches',
+      ),
+      const NavigationDestination(
+        icon: Icon(Icons.newspaper_outlined),
+        selectedIcon: Icon(Icons.newspaper),
+        label: 'News',
       ),
       if (isPremium)
         const NavigationDestination(

@@ -5,6 +5,9 @@ import '../core/api/football_api_client.dart';
 import '../core/api/league_season_resolver.dart';
 import '../core/api/sportsdb_v2_client.dart';
 import '../features/lineups/lineup_repository.dart';
+import '../features/news/news_api_client.dart';
+import '../features/news/news_repository.dart';
+import '../features/news/news_store.dart';
 import '../core/storage/cache_store.dart';
 import '../core/storage/secure_key_store.dart';
 
@@ -13,12 +16,82 @@ final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
   throw UnimplementedError('sharedPreferencesProvider must be overridden');
 });
 
-final secureKeyStoreProvider =
-    Provider<SecureKeyStore>((ref) => SecureKeyStore());
+final secureKeyStoreProvider = Provider<SecureKeyStore>(
+  (ref) => SecureKeyStore(),
+);
+
+/// Changes immediately when the saved News key is edited, before cache clearing
+/// finishes, so in-flight responses become stale at once.
+final newsApiKeyGenerationProvider = StateProvider<int>((ref) => 0);
+
+/// GNews key is a personal, free-tier key stored in SharedPreferences.
+final newsApiKeyProvider = AsyncNotifierProvider<NewsApiKeyNotifier, String?>(
+  NewsApiKeyNotifier.new,
+);
+
+class NewsApiKeyNotifier extends AsyncNotifier<String?> {
+  static const _prefsKey = 'news_api_key';
+
+  @override
+  Future<String?> build() async =>
+      ref.read(sharedPreferencesProvider).getString(_prefsKey);
+
+  Future<void> setKey(String key) async {
+    ref.read(newsApiKeyGenerationProvider.notifier).state++;
+    final trimmed = key.trim();
+    await ref.read(sharedPreferencesProvider).setString(_prefsKey, trimmed);
+    await NewsStore.clearAll(ref.read(sharedPreferencesProvider));
+    state = AsyncData(trimmed);
+  }
+
+  Future<void> clear() async {
+    ref.read(newsApiKeyGenerationProvider.notifier).state++;
+    await ref.read(sharedPreferencesProvider).remove(_prefsKey);
+    await NewsStore.clearAll(ref.read(sharedPreferencesProvider));
+    state = const AsyncData(null);
+  }
+}
+
+/// Maximum headline age, restored from preferences on provider creation.
+final newsMaxAgeDaysProvider =
+    StateNotifierProvider<NewsMaxAgeDaysNotifier, int>((ref) {
+      return NewsMaxAgeDaysNotifier(
+        ref.read(sharedPreferencesProvider),
+        ref.read(newsStoreProvider),
+      );
+    });
+
+class NewsMaxAgeDaysNotifier extends StateNotifier<int> {
+  NewsMaxAgeDaysNotifier(SharedPreferences prefs, NewsStore store)
+    : _prefs = prefs,
+      _store = store,
+      super(_savedMaxAge(prefs));
+
+  final SharedPreferences _prefs;
+  final NewsStore _store;
+
+  static int _savedMaxAge(SharedPreferences prefs) {
+    final saved = prefs.getInt('news_max_age_days');
+    return saved != null && [1, 3, 7].contains(saved) ? saved : 1;
+  }
+
+  Future<void> setDays(int days) async {
+    if (![1, 3, 7].contains(days)) {
+      throw ArgumentError.value(days, 'days', 'Must be 1, 3, or 7.');
+    }
+    if (days == state) return;
+    state = days;
+    await _prefs.setInt('news_max_age_days', days);
+    await _store.pruneAllOlderThan(
+      DateTime.now().toUtc().subtract(Duration(days: days)),
+    );
+  }
+}
 
 /// The current API key (loaded from secure storage). `null` means "not set".
-final apiKeyProvider =
-    AsyncNotifierProvider<ApiKeyNotifier, String?>(ApiKeyNotifier.new);
+final apiKeyProvider = AsyncNotifierProvider<ApiKeyNotifier, String?>(
+  ApiKeyNotifier.new,
+);
 
 class ApiKeyNotifier extends AsyncNotifier<String?> {
   @override
@@ -43,12 +116,33 @@ class ApiKeyNotifier extends AsyncNotifier<String?> {
   }
 }
 
+/// Per-league persisted news fragments.
+final newsStoreProvider = Provider<NewsStore>((ref) {
+  return NewsStore(ref.watch(sharedPreferencesProvider));
+});
+
+/// GNews client rebuilt when the configured key changes.
+final newsApiClientProvider = Provider<NewsApiClient>((ref) {
+  ref.watch(newsApiKeyProvider);
+  final client = NewsApiClient();
+  ref.onDispose(client.close);
+  return client;
+});
+
+final newsRepositoryProvider = Provider<NewsRepository>((ref) {
+  return NewsRepository(
+    client: ref.watch(newsApiClientProvider),
+    store: ref.watch(newsStoreProvider),
+  );
+});
+
 /// Increments each time an API request is throttled (HTTP 429). The UI listens
 /// to this to surface a brief "rate limit reached" notice. We can't show a
 /// remaining-quota count because TheSportsDB doesn't report one, so this is a
 /// reactive warning only.
-final rateLimitProvider =
-    NotifierProvider<RateLimitController, int>(RateLimitController.new);
+final rateLimitProvider = NotifierProvider<RateLimitController, int>(
+  RateLimitController.new,
+);
 
 class RateLimitController extends Notifier<int> {
   @override
