@@ -67,6 +67,8 @@ richer team data.
 
 ### News
 
+<a href="screenshots/news-flash.jpeg"><img src="screenshots/news-flash.jpeg" alt="News Flash screenshot" width="19%"></a>
+
 - Add your own free GNews API key in `Settings` to use the News tab. News is
   available to Free and Premium users.
 - Pull down on News to fetch current headlines for the selected league. Opening
