@@ -29,21 +29,79 @@ class NewsApiClient {
 
   final Dio _dio;
 
+  /// Fetches newest-first headlines.
+  ///
+  /// [publishedBefore] is an exclusive age boundary for early stopping, not a
+  /// server-side filter. Articles exactly at the boundary remain eligible;
+  /// fetching stops only when a later page contains articles strictly older
+  /// than it all.
   Future<List<NewsItem>> searchLeagueNews(
     String leagueName,
-    String apiKey,
-  ) async {
-    final data = await _get('/search', {
-      'q': leagueName,
-      'lang': 'en',
-      'max': 25,
-      'token': apiKey,
-    });
-    final articles = data['articles'];
+    String apiKey, {
+    int maxPerPage = 10,
+    int maxPages = 10,
+    DateTime? publishedBefore,
+  }) async {
+    final accumulated = <NewsItem>[];
+    for (var page = 1; page <= maxPages; page++) {
+      late final Map<String, dynamic> data;
+      try {
+        data = await _fetchPage(
+          leagueName,
+          apiKey,
+          page: page,
+          maxPerPage: maxPerPage,
+        );
+      } on NewsApiException catch (error) {
+        // Keep already fetched headlines usable when a later page is blocked
+        // by quota, rate limits, or a transient network error. A 401 means
+        // the key is invalid, so preserve that intentional auth failure.
+        if (page > 1 && error.statusCode != 401) break;
+        rethrow;
+      }
+      final articles = data['articles'];
+      if (articles is! List) break;
+
+      final pageItems = _decodeArticles(articles);
+      accumulated.addAll(pageItems);
+
+      if (articles.length < maxPerPage) break;
+      // Results are ordered newest-first (see sortby below), so once every
+      // article on a later page is strictly older than this boundary, no
+      // subsequent page can contain eligible stories. The cutoff is exclusive
+      // for stopping: articles exactly at the cutoff remain eligible.
+      if (page > 1 &&
+          publishedBefore != null &&
+          pageItems.isNotEmpty &&
+          pageItems.every(
+            (item) => item.publishedAt.isBefore(publishedBefore),
+          )) {
+        break;
+      }
+    }
+
+    return accumulated;
+  }
+
+  Future<Map<String, dynamic>> _fetchPage(
+    String leagueName,
+    String apiKey, {
+    required int page,
+    required int maxPerPage,
+  }) => _get('/search', {
+    'q': leagueName,
+    'lang': 'en',
+    'max': maxPerPage,
+    'page': page,
+    'sortby': 'publishedAt',
+    'token': apiKey,
+  });
+
+  List<NewsItem> _decodeArticles(Object? articles) {
     if (articles is! List) return const [];
     return articles
         .whereType<Map<String, dynamic>>()
-        .map((article) => NewsItem.fromJson(article))
+        .map(NewsItem.fromJson)
         .where((item) => item.title.isNotEmpty && item.url.isNotEmpty)
         .toList();
   }

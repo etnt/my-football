@@ -28,9 +28,17 @@ class NewsRepository {
   }) async {
     final now = DateTime.now().toUtc();
     final cutoff = now.subtract(Duration(days: maxAgeDays));
-    final fetched = await client.searchLeagueNews(league.name, apiKey);
+    final fetched = await client.searchLeagueNews(
+      league.name,
+      apiKey,
+      publishedBefore: cutoff,
+    );
+    final seenUrls = <String>{};
     final recent =
-        fetched.where((item) => !item.publishedAt.isBefore(cutoff)).toList()
+        fetched
+            .where((item) => !item.publishedAt.isBefore(cutoff))
+            .where((item) => seenUrls.add(item.url))
+            .toList()
           ..sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
     // A key or league change can make an in-flight response obsolete. Check
     // inside the store's serialized mutation queue, so a cache clear cannot

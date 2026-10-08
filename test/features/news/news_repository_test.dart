@@ -11,9 +11,11 @@ import 'package:my_football/models/league.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _Adapter implements HttpClientAdapter {
-  _Adapter(this.status, this.body);
+  _Adapter(this.status, this.body, {this.pageBodies = const {}});
   final int status;
   final String body;
+  final Map<int, String> pageBodies;
+  final requests = <RequestOptions>[];
 
   @override
   void close({bool force = false}) {}
@@ -23,14 +25,27 @@ class _Adapter implements HttpClientAdapter {
     RequestOptions options,
     Stream<Uint8List>? requestStream,
     Future<void>? cancelFuture,
-  ) async => ResponseBody.fromString(
-    body,
-    status,
-    headers: {
-      Headers.contentTypeHeader: [Headers.jsonContentType],
-    },
-  );
+  ) async {
+    requests.add(options);
+    final page = options.queryParameters['page'] as int? ?? 1;
+    return ResponseBody.fromString(
+      pageBodies[page] ?? body,
+      status,
+      headers: {
+        Headers.contentTypeHeader: [Headers.jsonContentType],
+      },
+    );
+  }
 }
+
+Map<String, dynamic> _article(String title, String url, DateTime publishedAt) =>
+    {
+      'title': title,
+      'description': 'desc',
+      'source': {'name': 'Paper'},
+      'url': url,
+      'publishedAt': publishedAt.toIso8601String(),
+    };
 
 void main() {
   late SharedPreferences prefs;
@@ -81,6 +96,81 @@ void main() {
     expect(
       (await store.load(League.premierLeague.id)).map((item) => item.title),
       ['Fresh saved story'],
+    );
+  });
+
+  test(
+    'forwards cutoff and fetches newest-first until a page is too old',
+    () async {
+      final now = DateTime.now().toUtc();
+      final adapter = _Adapter(
+        200,
+        '{"articles":[]}',
+        pageBodies: {
+          1: jsonEncode({
+            'articles': List.generate(
+              10,
+              (index) => _article(
+                'Fresh $index',
+                'https://example.com/fresh-$index',
+                now,
+              ),
+            ),
+          }),
+          2: jsonEncode({
+            'articles': List.generate(
+              10,
+              (index) => _article(
+                'Old $index',
+                'https://example.com/old-$index',
+                now.subtract(const Duration(days: 10)),
+              ),
+            ),
+          }),
+        },
+      );
+
+      final items = await repository(adapter).refresh(
+        league: League.premierLeague,
+        apiKey: 'test-key',
+        maxAgeDays: 1,
+      );
+
+      expect(items, hasLength(10));
+      expect(items.every((item) => item.title.startsWith('Fresh')), isTrue);
+      expect(
+        adapter.requests.map((request) => request.queryParameters['page']),
+        [1, 2],
+      );
+      expect(adapter.requests.first.queryParameters['sortby'], 'publishedAt');
+      expect(
+        (await store.load(League.premierLeague.id)).map((item) => item.url),
+        items.map((item) => item.url),
+      );
+    },
+  );
+
+  test('deduplicates fetched headlines by URL before storing them', () async {
+    final now = DateTime.now().toUtc();
+    final adapter = _Adapter(
+      200,
+      jsonEncode({
+        'articles': [
+          _article('First version', 'https://example.com/story', now),
+          _article('Duplicate version', 'https://example.com/story', now),
+          _article('Other story', 'https://example.com/other', now),
+        ],
+      }),
+    );
+
+    final items = await repository(
+      adapter,
+    ).refresh(league: League.premierLeague, apiKey: 'test-key', maxAgeDays: 1);
+
+    expect(items.map((item) => item.title), ['First version', 'Other story']);
+    expect(
+      (await store.load(League.premierLeague.id)).map((item) => item.url),
+      ['https://example.com/story', 'https://example.com/other'],
     );
   });
 
