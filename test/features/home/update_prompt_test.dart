@@ -4,6 +4,7 @@ import 'package:auto_upgrade/auto_upgrade.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_football/features/home/update_prompt.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class _FakeChecker extends ReleaseChecker {
   _FakeChecker(this.result)
@@ -47,6 +48,180 @@ Future<List<UpdateInfo>> _showPrompt(
 }
 
 void main() {
+  group('launchReleasePageUrl', () {
+    UpdateInfo infoWith(String url) => UpdateInfo(
+      latestVersion: '1.2.0',
+      currentVersion: '1.0.0',
+      releasePageUrl: url,
+      releaseNotes: null,
+    );
+
+    test('does not launch a non-https URL', () async {
+      var called = 0;
+      Future<bool> launcher(
+        Uri uri, {
+        LaunchMode mode = LaunchMode.platformDefault,
+      }) async {
+        called++;
+        return true;
+      }
+
+      await launchReleasePageUrl(
+        infoWith('http://github.com/etnt/my-football/releases/tag/v1.2.0'),
+        launcher: launcher,
+      );
+      expect(called, 0);
+    });
+
+    test('launches an https URL with the external mode', () async {
+      final uris = <Uri>[];
+      final modes = <LaunchMode>[];
+      Future<bool> launcher(
+        Uri uri, {
+        LaunchMode mode = LaunchMode.platformDefault,
+      }) async {
+        uris.add(uri);
+        modes.add(mode);
+        return true;
+      }
+
+      await launchReleasePageUrl(
+        infoWith('https://github.com/etnt/my-football/releases/tag/v1.2.0'),
+        launcher: launcher,
+      );
+      expect(uris, [
+        Uri.parse('https://github.com/etnt/my-football/releases/tag/v1.2.0'),
+      ]);
+      expect(modes, [LaunchMode.externalApplication]);
+    });
+
+    test('does not launch an unparseable URL', () async {
+      var called = 0;
+      Future<bool> launcher(
+        Uri uri, {
+        LaunchMode mode = LaunchMode.platformDefault,
+      }) async {
+        called++;
+        return true;
+      }
+
+      await launchReleasePageUrl(infoWith('::: not a url'), launcher: launcher);
+      expect(called, 0);
+    });
+
+    test('swallows launcher exceptions', () async {
+      Future<bool> launcher(
+        Uri uri, {
+        LaunchMode mode = LaunchMode.platformDefault,
+      }) async {
+        throw Exception('no browser available');
+      }
+
+      // Must complete without throwing.
+      await launchReleasePageUrl(
+        infoWith('https://github.com/etnt/my-football/releases/tag/v1.2.0'),
+        launcher: launcher,
+      );
+    });
+  });
+
+  group('release notes formatting', () {
+    Future<String> shownNotes(WidgetTester tester, String notes) async {
+      final checker = _FakeChecker(
+        UpdateAvailable(
+          UpdateInfo(
+            latestVersion: '1.2.0',
+            currentVersion: '1.0.0',
+            releasePageUrl: _updateInfo.releasePageUrl,
+            releaseNotes: notes,
+          ),
+        ),
+      );
+      await _showPrompt(tester, checker);
+      final texts = tester
+          .widgetList<Text>(find.byType(Text))
+          .map((text) => text.data ?? '')
+          .where(
+            (text) =>
+                text != 'Update available' &&
+                text != 'Later' &&
+                text != 'Update now' &&
+                !text.startsWith('Version '),
+          )
+          .toList();
+      return texts.single;
+    }
+
+    testWidgets('strips common GitHub Markdown syntax', (tester) async {
+      final shown = await shownNotes(
+        tester,
+        '# Heading\n'
+        '**bold** and *italic* and `code`\n'
+        '- item one\n'
+        '* item two\n'
+        'See [the release](https://example.com/release) for details.',
+      );
+
+      expect(
+        shown,
+        'Heading\nbold and italic and code\nitem one\nitem two\n'
+        'See the release for details.',
+      );
+    });
+
+    testWidgets('truncates by runes so emoji surrogate pairs are never split', (
+      tester,
+    ) async {
+      // 299 ASCII runes, then an emoji (a surrogate pair), then filler. A
+      // code-unit cut at 300 would leave a lone surrogate at the end.
+      const emoji = '😀';
+      final notes = '${'a' * 299}$emoji${'b' * 50}';
+      final shown = await shownNotes(tester, notes);
+
+      expect(shown, '${'a' * 299}$emoji…');
+    });
+
+    testWidgets('truncated text never ends in a lone surrogate', (
+      tester,
+    ) async {
+      // Put the emoji right at the code-unit cut point (code unit 300).
+      final notes = '${'a' * 299}😀${'b' * 50}';
+      final shown = await shownNotes(tester, notes);
+
+      // No unpaired surrogate code units in the truncated result.
+      final runes = shown.runes.toList();
+      for (final rune in runes) {
+        final isSurrogate = rune >= 0xD800 && rune <= 0xDFFF;
+        expect(
+          isSurrogate,
+          isFalse,
+          reason: 'lone surrogate U+${rune.toRadixString(16)}',
+        );
+      }
+      expect(shown.runes.length, lessThanOrEqualTo(301)); // 300 + ellipsis.
+      expect(shown.endsWith('…'), isTrue);
+    });
+
+    testWidgets('notes within the limit are shown as-is', (tester) async {
+      final shown = await shownNotes(tester, 'Short notes.');
+      expect(shown, 'Short notes.');
+    });
+
+    testWidgets('keeps blank lines before headings and lists', (tester) async {
+      final shown = await shownNotes(
+        tester,
+        'Intro\n\n## Changes\n\n- one\n- two',
+      );
+
+      expect(shown, 'Intro\n\nChanges\n\none\ntwo');
+    });
+
+    testWidgets('leaves text like "#1 priority" unchanged', (tester) async {
+      final shown = await shownNotes(tester, '#1 priority fix');
+      expect(shown, '#1 priority fix');
+    });
+  });
+
   testWidgets('new release shows versions and release notes', (tester) async {
     final checker = _FakeChecker(const UpdateAvailable(_updateInfo));
     await _showPrompt(tester, checker);

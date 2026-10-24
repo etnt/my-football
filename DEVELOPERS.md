@@ -171,6 +171,10 @@ flutter test                   # unit and widget tests
 flutter test integration_test  # end-to-end integration test
 ```
 
+> **Note:** tests that expect `appVersion == 'dev'` assume no `APP_VERSION`
+> dart-define is set. Run `flutter test` without
+> `--dart-define=APP_VERSION=...` so those assertions hold.
+
 ### Simulating live goal alerts
 
 Firing a *real* goal alert needs a Premium key, a match live right now, and a

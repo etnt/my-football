@@ -119,6 +119,8 @@ Prebuilt Android APKs are published on the repository's
 At startup, the app checks for a newer version at most once every 24 hours.
 If one is available, tap `Update now` to open its release page, or tap `Later`
 to close the prompt. If the app cannot reach GitHub, no prompt appears.
+Locally built (development) versions report `dev` and never check for
+updates.
 
 > **iPhone:** direct APK downloads are not available. For iOS source-build
 > instructions, see [DEVELOPERS.md](DEVELOPERS.md).

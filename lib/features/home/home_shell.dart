@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../config/app_version.dart';
 import '../../models/league.dart';
@@ -50,15 +49,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       maybeShowUpdateDialog(
         context,
         checker: ref.read(releaseCheckerProvider),
-        onUpdate: (info) async {
-          final uri = Uri.tryParse(info.releasePageUrl);
-          if (uri == null || uri.scheme != 'https') return;
-          try {
-            await launchUrl(uri, mode: LaunchMode.externalApplication);
-          } catch (_) {
-            // A failed browser launch must not interrupt the app.
-          }
-        },
+        onUpdate: launchReleasePageUrl,
       ),
     );
   }

@@ -22,8 +22,8 @@ Future<void> main() async {
         sharedPreferencesProvider.overrideWithValue(prefs),
         releaseCheckerProvider.overrideWithValue(
           ReleaseChecker(
-            owner: 'etnt',
-            repo: 'my-football',
+            owner: kReleaseOwner,
+            repo: kReleaseRepo,
             currentVersion: appVersion,
             // Avoid a GitHub request on every launch; successful checks are
             // throttled across restarts, while errors remain retryable.
