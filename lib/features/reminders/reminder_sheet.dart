@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/fixture.dart';
 import 'match_reminder.dart';
+import 'reminder_notification_service.dart';
 import 'reminder_store.dart';
 import 'reminders_providers.dart';
 
@@ -81,27 +82,43 @@ class _ReminderSheetState extends ConsumerState<_ReminderSheet> {
       return;
     }
 
-    // Persist and schedule even if the permission prompt fails (TASK-015):
-    // the choice survives restarts; the notification just stays silent until
-    // notifications are enabled in system settings.
-    final allowed = await service.ensureReady();
-    await service.schedule(
-      MatchReminder(
-        fixtureId: fixture.id,
-        kickoffUtc: fixture.dateUtc,
-        homeName: fixture.homeName,
-        awayName: fixture.awayName,
-        leadMinutes: lead,
-      ),
-    );
+    // The choice is persisted and handed to the OS whenever it is saved
+    // (TASK-015): the OS decides whether it can deliver, so a reminder saved
+    // while notifications are blocked still fires once the user enables them
+    // later. Scheduling is attempted even when ensureReady() does not report
+    // granted — a denied permission just means the OS drops it for now.
+    final status = await service.ensureReady();
+    var finalStatus = status;
+    var scheduleResult = ReminderScheduleResult.scheduled;
+    try {
+      scheduleResult = await service.schedule(
+        MatchReminder(
+          fixtureId: fixture.id,
+          kickoffUtc: fixture.dateUtc,
+          homeName: fixture.homeName,
+          awayName: fixture.awayName,
+          leadMinutes: lead,
+        ),
+      );
+      // The OS now holds the alarm, so an ensureReady() hiccup no longer
+      // matters — only a scheduling failure leaves the reminder unscheduled.
+      if (finalStatus == ReminderPermissionStatus.error) {
+        finalStatus = ReminderPermissionStatus.granted;
+      }
+    } catch (e) {
+      // schedule() failed. The choice is persisted, but the OS does not have
+      // the alarm yet, so the user must save the reminder again.
+      debugPrint('Failed to schedule reminder: $e');
+      finalStatus = ReminderPermissionStatus.error;
+    }
     navigator.pop();
     messenger.showSnackBar(
       SnackBar(
         content: Text(
-          allowed
-              ? 'Reminder set: ${_leadLabel(lead)} before kick-off'
-              : 'Reminder saved, but notifications are turned off in system '
-                  'settings, so it will stay silent.',
+          scheduleResult == ReminderScheduleResult.alreadyPassed
+              ? 'The reminder time has already passed, so no notification '
+                  'was set.'
+              : _savedMessage(finalStatus, _leadLabel(lead)),
         ),
       ),
     );
@@ -192,6 +209,28 @@ class _ReminderTile extends StatelessWidget {
 }
 
 String _leadLabel(int minutes) => '$minutes min before';
+
+/// Snackbar text for the saved reminder, one distinct message per status so
+/// the user is told what is actually wrong instead of a generic "system
+/// settings" warning.
+String _savedMessage(ReminderPermissionStatus status, String leadLabel) {
+  switch (status) {
+    case ReminderPermissionStatus.granted:
+      // _leadLabel already ends in "before", so no second "before" here.
+      return 'Reminder set: $leadLabel kick-off';
+    case ReminderPermissionStatus.notificationsDenied:
+      return 'Reminder saved, but notifications are off for this app. '
+          'The reminder will only show if you turn them on in system '
+          'settings before the reminder time.';
+    case ReminderPermissionStatus.channelBlocked:
+      return "Reminder saved, but the 'Match reminders' channel is turned "
+          'off in system settings. The reminder will only show if you turn '
+          'it back on before the reminder time.';
+    case ReminderPermissionStatus.error:
+      return 'Reminder saved, but it could not be scheduled. Save the '
+          'reminder again from the match.';
+  }
+}
 
 const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const _months = [

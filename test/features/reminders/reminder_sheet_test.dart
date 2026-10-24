@@ -14,14 +14,28 @@ import 'package:shared_preferences/shared_preferences.dart';
 class _FakeNotifications extends ReminderNotificationService {
   final scheduled = <MatchReminder>[];
   final cancelled = <int>[];
-  bool allowed = true;
+  ReminderPermissionStatus status = ReminderPermissionStatus.granted;
+  /// What [schedule] reports; set to [ReminderScheduleResult.alreadyPassed]
+  /// to model a fire time that is already in the past.
+  ReminderScheduleResult scheduleResult = ReminderScheduleResult.scheduled;
+  /// If non-null, [schedule] throws this error instead of recording the call.
+  Object? scheduleError;
 
   @override
-  Future<bool> ensureReady() async => allowed;
+  Future<ReminderPermissionStatus> ensureReady() async => status;
 
   @override
-  Future<void> schedule(MatchReminder reminder) async =>
+  Future<ReminderScheduleResult> schedule(MatchReminder reminder) async {
+    if (scheduleError != null) {
+      throw scheduleError!;
+    }
+    // Mirror the real service: an already-passed fire time is not handed to
+    // the OS, so nothing is recorded.
+    if (scheduleResult == ReminderScheduleResult.scheduled) {
       scheduled.add(reminder);
+    }
+    return scheduleResult;
+  }
 
   @override
   Future<void> cancel(int fixtureId) async => cancelled.add(fixtureId);
@@ -139,5 +153,130 @@ void main() {
     expect(notifications.cancelled, [42]);
     expect(notifications.scheduled, isEmpty);
     expect(await store.load(), isEmpty);
+  });
+
+  testWidgets('notificationsDenied: still schedules and explains the fix',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final notifications = _FakeNotifications()
+      ..status = ReminderPermissionStatus.notificationsDenied;
+    final fixture = _upcoming();
+
+    await tester.pumpWidget(_host(fixture, notifications, prefs));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    // The choice is persisted and handed to the OS even while permission is
+    // denied: the OS drops it silently, and it fires once notifications are
+    // enabled.
+    expect(notifications.scheduled, hasLength(1));
+    expect(notifications.cancelled, isEmpty);
+    expect(await ReminderStore(prefs).load(), hasLength(1));
+    expect(
+      find.text('Reminder saved, but notifications are off for this app. '
+          'The reminder will only show if you turn them on in system '
+          'settings before the reminder time.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('channelBlocked: still schedules and names the channel',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final notifications = _FakeNotifications()
+      ..status = ReminderPermissionStatus.channelBlocked;
+    final fixture = _upcoming();
+
+    await tester.pumpWidget(_host(fixture, notifications, prefs));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    // The alarm is still handed to the OS; the blocked channel only hides
+    // the notification until the user re-enables the channel.
+    expect(notifications.scheduled, hasLength(1));
+    expect(
+      find.text("Reminder saved, but the 'Match reminders' channel is "
+          'turned off in system settings. The reminder will only show if '
+          'you turn it back on before the reminder time.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('ensureReady error: still schedules and reports it as set',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final notifications = _FakeNotifications()
+      ..status = ReminderPermissionStatus.error;
+    final fixture = _upcoming();
+
+    await tester.pumpWidget(_host(fixture, notifications, prefs));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    // The OS holds the alarm, so an ensureReady() hiccup does not make the
+    // message claim a failure that did not happen.
+    expect(notifications.scheduled, hasLength(1));
+    expect(
+      find.text('Reminder set: 15 min before kick-off'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('schedule() throwing shows a failure message', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final notifications = _FakeNotifications()
+      ..scheduleError = Exception('os/plugin failure');
+    final fixture = _upcoming();
+
+    await tester.pumpWidget(_host(fixture, notifications, prefs));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    // The reminder is saved, but the scheduling plugin failed, so the OS
+    // does not have the alarm and the message must say to save again.
+    expect(notifications.scheduled, isEmpty);
+    expect(await ReminderStore(prefs).load(), hasLength(1));
+    expect(
+      find.text('Reminder saved, but it could not be scheduled. Save the '
+          'reminder again from the match.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('already-passed fire time: saves the choice but says no '
+      'notification was set', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final notifications = _FakeNotifications()
+      ..scheduleResult = ReminderScheduleResult.alreadyPassed;
+    final fixture = _upcoming();
+
+    await tester.pumpWidget(_host(fixture, notifications, prefs));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    // The choice is persisted, but the OS holds no alarm, so the message
+    // must not claim a reminder was set.
+    expect(notifications.scheduled, isEmpty);
+    expect(await ReminderStore(prefs).load(), hasLength(1));
+    expect(
+      find.text(
+          'The reminder time has already passed, so no notification was set.'),
+      findsOneWidget,
+    );
   });
 }

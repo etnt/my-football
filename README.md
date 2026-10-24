@@ -60,6 +60,8 @@ richer team data.
 - Tap `Save` to schedule the reminder. Choose `Off` and save to cancel it.
 - For a new reminder, `15 min` is selected by default.
 - Allow notifications when prompted. Without permission, reminders stay silent until you enable notifications in system settings.
+- If a reminder stays silent after you saved it, check Settings → Apps → my_football → Notifications. Both the main notifications switch and the 'Match reminders' category must be on; the app cannot re-enable a category you turned off there.
+- The app uses inexact alarms, so no exact-alarm permission is needed, and Doze may delay delivery by minutes.
 - On a team's details page, tap a finished match for goal details.
 - Double-tap a finished match to view its line-up.
 - Double-tap an eligible upcoming match to set a reminder.
