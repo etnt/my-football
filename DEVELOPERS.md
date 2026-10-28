@@ -36,6 +36,115 @@ TheSportsDB Premium. Saved headlines are kept per league and age-filtered using
 the `News max age` setting in Settings (1, 3, or 7 days; default 1 day).
 Article links open in the platform in-app browser. No new package is needed.
 
+## On-device AI recaps
+
+Finished matches get a short recap at the top of the goals sheet. On supported
+Android phones, Gemini Nano (the model built into the phone) writes the recap
+in prose. Nothing is sent to a server. The design plan is in
+[`plan/feature-ai-recaps-search-1.md`](plan/feature-ai-recaps-search-1.md).
+
+### How it works
+
+1. `FactSheet` (`lib/features/recap/fact_sheet.dart`) collects the match
+   facts: teams, score, round, and (with a Premium key) goals and cards. If
+   the timeline does not account for every goal, goals and cards are dropped
+   and the facts are score-only.
+2. `RecapBuilder` (`lib/features/recap/recap_builder.dart`) builds a plain
+   template from the facts. If the facts are complete (the timeline accounts
+   for every goal), it asks the model for a rewrite. The availability check and the generation share an 8-second
+   timeout.
+3. The model is reached through `AiService`. On Android this is
+   `GeminiNanoService` (`lib/features/ai/gemini_nano_service.dart`), which
+   talks over the `my_football/ai` method channel to
+   `android/app/src/main/kotlin/.../GeminiNanoChannel.kt`. That class uses the
+   ML Kit GenAI Prompt API (`com.google.mlkit:genai-prompt`, beta). Other
+   platforms use `UnavailableAiService`.
+4. The validator checks the model text (see below). Accepted text is cached
+   under `recap_<fixtureId>_<promptVersion>`. Rejected or missing text is not
+   cached, so the next open tries again.
+5. In the UI, `Show recap` shows the AI text. Without it, `Show facts` shows the
+   fact lines.
+
+The Prompt API needs Android API 26, so `minSdk` is 26. Supported phones are
+listed in the **Device support** section of
+[Google's ML Kit GenAI page](https://developers.google.com/ml-kit/genai).
+
+### The validator
+
+Small models sometimes invent details: a wrong score, an extra goal, or a
+player who was not in the match. `validateRecapText`
+(`lib/features/ai/output_validator.dart`) compares the model text with the
+fact sheet and rejects it if:
+
+- it contains a **number** that is not in the facts (score, minute, round,
+  date);
+- it contains a **capitalised word** that is neither a team or player in the
+  facts nor on the common-word allowlist (`_nameAllowlist`);
+- it mentions **injuries, transfers, referees, suspensions, or VAR** that the
+  facts do not mention;
+- it is shorter than 60 or longer than 600 characters.
+
+A rejected recap is dropped and the user sees the plain facts instead.
+
+The name check cannot tell a sentence-opening word from an unknown name. If a
+common word such as "Several" or "Round" causes false rejections, add it to
+`_nameAllowlist` and cover it in `test/features/ai/output_validator_test.dart`.
+Never add player or team names to the allowlist. Every rejection is logged
+with the offending word, for example
+`validateRecapText: rejected (unknownName: "Several")`.
+
+If you change the prompt in `lib/features/ai/prompt_templates.dart`, bump
+`recapPromptVersion` so cached recaps are regenerated.
+
+### Debugging the model on a phone
+
+- Log lines (`[AI recap] ...` and `validateRecapText: ...`) go to logcat in
+  every build, including release builds:
+
+  ```bash
+  adb logcat | grep -E "AI recap|validateRecapText"
+  ```
+
+- To show the same log in the app, under the recap, build with:
+
+  ```bash
+  flutter run --dart-define=AI_DIAGNOSTICS=true
+  ```
+
+- To probe availability and generation speed at startup, run:
+
+  ```bash
+  flutter run --dart-define=AI_SPIKE=true
+  ```
+
+  The probe ([`lib/dev/ai_spike.dart`](lib/dev/ai_spike.dart)) logs
+  `[AI spike]` lines.
+
+- A GitHub release has a higher `versionCode` and a different signing key than
+  a local build. To install a local build over it, uninstall the app first.
+  That deletes the saved API keys.
+
+### Release builds and R8
+
+Flutter release builds run **R8**, which shrinks the app and renames classes.
+Debug builds do not. Without keep rules, R8 broke ML Kit's internal component
+lookup: `MlKitContext.get(SharedPrefManager.class)` returned `null`, and the
+GenAI client threw a `NullPointerException` while it was being created. The
+model then reported itself unavailable, so release builds never showed an AI
+recap while debug builds worked.
+
+The fix is [`android/app/proguard-rules.pro`](android/app/proguard-rules.pro),
+which keeps the ML Kit classes and their component registrars. The Flutter
+Gradle plugin applies this file to release builds automatically. Do not delete
+it.
+
+If a feature works in debug but not in release, suspect R8 first:
+
+1. Build a local release and test it on a phone: `flutter build apk --release`.
+2. Look up obfuscated class names from a stack trace in
+   `build/app/outputs/mapping/release/mapping.txt`.
+3. Add a `-keep` rule for the affected library to `proguard-rules.pro`.
+
 ## Project structure
 
 The code follows a feature-first layout under `lib/`:
@@ -57,6 +166,8 @@ lib/
 │  ├─ news/                     # GNews headlines, store and refresh UI
 │  ├─ stats/                    # scorers, assists & cards leaderboards (premium)
 │  ├─ team/                     # team detail & schedule
+│  ├─ ai/                       # AiService, Gemini Nano channel, validator, log
+│  ├─ recap/                    # match recaps: fact sheet, builder, UI
 │  └─ settings/                 # API key entry & validation
 └─ shared/widgets/              # reusable error / message views
 ```
