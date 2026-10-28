@@ -7,6 +7,8 @@ import 'package:my_football/features/live/live_providers.dart';
 import 'package:my_football/models/fixture.dart';
 import 'package:my_football/models/goal_event.dart';
 import 'package:my_football/models/match_timeline.dart';
+import 'package:my_football/providers/app_providers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Issue #5 — from the Matches/Results page, tapping a finished match opens
 /// the same goals sheet as the Live tab, showing who scored.
@@ -69,7 +71,7 @@ void main() {
 
     // Finished matches must not use the live-oriented "yet" wording.
     expect(
-      find.text('Goal details aren’t available for this match.'),
+      find.text('Goal details need a Premium key.'),
       findsOneWidget,
     );
   });
@@ -121,9 +123,14 @@ Future<void> _pumpView(
   required List<Fixture> fixtures,
   MatchTimeline Function(int eventId)? timelineFor,
 }) async {
+  // The goals sheet embeds the recap section, which reads the shared
+  // preferences — without an override it throws.
+  SharedPreferences.setMockInitialValues({});
+  final prefs = await SharedPreferences.getInstance();
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
         fixturesProvider.overrideWith(
           () => _FakeFixturesNotifier(fixtures),
         ),

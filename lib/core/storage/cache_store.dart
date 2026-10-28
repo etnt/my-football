@@ -48,7 +48,13 @@ class CacheStore {
   /// `catalog_leagues_*`): the free key caps list endpoints (countries to 50,
   /// league searches to 5), so a catalogue cached on the free key must never
   /// survive a switch to Premium.
+  ///
+  /// This also includes the `recap_*` keys: a switch from the free key to
+  /// Premium changes the match timeline data, so any previously cached recap
+  /// (which was generated from that older timeline) must be dropped to avoid
+  /// serving stale or incorrect information.
   static const _cachePrefixes = [
+    'recap_',
     'standings_',
     'season_events_',
     'team_events_',

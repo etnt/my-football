@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/fixture.dart';
 import '../../models/goal_event.dart';
+import '../../providers/app_providers.dart';
+import '../recap/recap_sheet.dart';
 import 'live_providers.dart';
 
 /// A quick summary of the goals recorded for an ongoing match.
@@ -91,6 +93,7 @@ class _LiveMatchGoalsSheetState extends ConsumerState<LiveMatchGoalsSheet> {
               ),
             ),
             const Divider(height: 1),
+            RecapSection(fixture: widget.fixture),
             Flexible(
               child: timeline.when(
                 loading: () => const _StatusArea(
@@ -111,12 +114,15 @@ class _LiveMatchGoalsSheetState extends ConsumerState<LiveMatchGoalsSheet> {
                 ),
                 data: (value) {
                   if (value.goals.isEmpty) {
-                    // Live matches may simply not have recorded anything yet;
-                    // finished ones only lack details when the competition's
-                    // timeline isn't covered (or the key is free-tier).
-                    final text = widget.fixture.isFinished
+                    // Live matches may simply not have recorded anything yet.
+                    // Finished ones show nothing on the free key (timelines are
+                    // Premium-only); otherwise the competition lacks coverage.
+                    final isPremium = ref.watch(isPremiumProvider);
+                    final text = !widget.fixture.isFinished
+                        ? 'Goal details aren’t available yet.'
+                        : isPremium
                         ? 'Goal details aren’t available for this match.'
-                        : 'Goal details aren’t available yet.';
+                        : 'Goal details need a Premium key.';
                     return _StatusArea(
                       child: _TimelineMessage(
                         icon: Icons.sports_soccer_outlined,

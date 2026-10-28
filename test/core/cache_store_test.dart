@@ -10,6 +10,9 @@ void main() {
       'season_events_4335': '{"ts":1,"data":[]}',
       'team_events_40': '{"ts":1,"data":[]}',
       'stats_34': '{"ts":1,"data":[]}',
+      // Recap caches written by the RecapBuilder. A switch from the free key
+      // to Premium changes the timeline data, so these must be wiped as well.
+      'recap_4328_2024-2025_v1': '{"ts":1,"data":"some recap"}',
       // Catalogue caches written by the Settings screen. The free key caps
       // list endpoints (50 countries / 5 leagues), so these must be wiped on
       // an API-key change too.
