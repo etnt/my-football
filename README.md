@@ -92,6 +92,8 @@ richer team data.
   yet on your phone, the plain recap is shown.
 - Tap `Show facts` to see the facts the recap was built from.
 
+<a href="screenshots/ai-recap.jpeg"><img src="screenshots/ai-recap.jpeg" alt="AI recap screenshot" width="19%"></a>
+
 ### News
 
 <a href="screenshots/news-flash.jpeg"><img src="screenshots/news-flash.jpeg" alt="News Flash screenshot" width="19%"></a>
