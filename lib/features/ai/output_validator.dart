@@ -37,6 +37,26 @@ const _nameAllowlist = {
   'extra', 'penalty', 'penalties', 'own', 'goal', 'kick', 'off', 'minute',
   'minutes', 'fixture', 'end', 'effort', 'strike', 'header', 'team',
   'side', 'clubs', 'club', 'fans', 'crowd', 'i',
+  // Quantifiers and determiners that often start a sentence.
+  'several', 'many', 'few', 'some', 'each', 'every', 'all', 'no', 'one',
+  'two', 'three', 'four', 'five', 'neither', 'either', 'another', 'other',
+  'more', 'most', 'only', 'just', 'even', 'such',
+  // Connectors and sentence-opening adverbs.
+  'however', 'meanwhile', 'later', 'earlier', 'then', 'finally', 'overall',
+  'also', 'still', 'yet', 'so', 'while', 'when', 'before', 'with', 'without',
+  'as', 'by', 'for', 'from', 'to', 'of', 'during', 'until', 'late', 'early',
+  'shortly', 'soon', 'moments', 'once', 'following', 'ultimately',
+  'together', 'altogether', 'not', 'nor', 'or', 'if', 'these', 'those',
+  'he', 'she', 'we', 'you', 'who', 'which', 'what',
+  // Card and discipline vocabulary.
+  'yellow', 'red', 'card', 'cards', 'booking', 'bookings', 'booked',
+  'caution', 'cautions', 'cautioned',
+  // More recap vocabulary.
+  'scorers', 'scorer', 'scoring', 'scored', 'equaliser', 'equalizer',
+  'winner', 'opener', 'lead', 'hosts', 'visitors', 'players', 'player',
+  'teams', 'sides', 'goalless', 'stoppage',
+  // The fact lines include 'Round: N'.
+  'round', 'matchweek', 'week',
   // All-caps abbreviation; whether a VAR mention is allowed is decided by
   // the forbidden-claims check below, not by the name check.
   'var',
@@ -68,7 +88,8 @@ ValidationResult validateRecapText(String text, FactSheet facts) {
   for (final match in numberPattern.allMatches(trimmed)) {
     if (!facts.allowedNumbers.contains(match.group(0))) {
       debugPrint(
-        'validateRecapText: rejected (${RejectReason.unknownNumber.name})',
+        'validateRecapText: rejected (${RejectReason.unknownNumber.name}: '
+        '"${match.group(0)}")',
       );
       return const ValidationResult.failure(RejectReason.unknownNumber);
     }
@@ -101,7 +122,8 @@ ValidationResult validateRecapText(String text, FactSheet facts) {
     );
     if (!known) {
       debugPrint(
-        'validateRecapText: rejected (${RejectReason.unknownName.name})',
+        'validateRecapText: rejected (${RejectReason.unknownName.name}: '
+        '"${match.group(0)}")',
       );
       return const ValidationResult.failure(RejectReason.unknownName);
     }
@@ -139,7 +161,8 @@ ValidationResult validateRecapText(String text, FactSheet facts) {
     );
     if (!factWord.hasMatch(factText)) {
       debugPrint(
-        'validateRecapText: rejected (${RejectReason.forbiddenClaim.name})',
+        'validateRecapText: rejected (${RejectReason.forbiddenClaim.name}: '
+        '"${match.group(0)}")',
       );
       return const ValidationResult.failure(RejectReason.forbiddenClaim);
     }

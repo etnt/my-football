@@ -21,9 +21,7 @@ FactSheet _factSheet() {
         ),
         GoalEvent(scorer: 'Saka', minute: 77, team: 'Arsenal'),
       ],
-      cards: const [
-        CardEvent(player: 'Caicedo', team: 'Chelsea', red: true),
-      ],
+      cards: const [CardEvent(player: 'Caicedo', team: 'Chelsea', red: true)],
     ),
   );
 }
@@ -39,6 +37,27 @@ void main() {
     final result = validateRecapText(validRecap, _factSheet());
     expect(result.ok, isTrue);
     expect(result.reason, isNull);
+  });
+
+  test('common sentence starters and card words are not treated as names', () {
+    // Seen on a Pixel 10 Pro: a longer recap opened a sentence with
+    // "Several", which the name check used to reject.
+    const text =
+        'Arsenal beat Chelsea 2 to 1. Several chances fell to Saka, who '
+        'scored twice. However, Caicedo equalised from the penalty spot. '
+        'Later, Caicedo was shown a red card. Yellow cards were rare. '
+        'Round 2 ended well.';
+    final result = validateRecapText(text, _factSheet());
+    expect(result.ok, isTrue);
+  });
+
+  test('an invented name at the start of a sentence is still rejected', () {
+    const text =
+        'Arsenal beat Chelsea 2 to 1. Several chances fell to Saka. '
+        'Martinelli also hit the post before the break.';
+    final result = validateRecapText(text, _factSheet());
+    expect(result.ok, isFalse);
+    expect(result.reason, RejectReason.unknownName);
   });
 
   test('made-up number is rejected', () {
@@ -216,7 +235,7 @@ void main() {
   });
 
   test('a bare VAR claim is rejected even when the facts contain an accented '
-        'name that ASCII word boundaries would cut at', () {
+      'name that ASCII word boundaries would cut at', () {
     final facts = FactSheet.build(
       fixture: fixtureFinished(),
       // 3 goal rows for the 2–1 score, so the timeline is complete and
@@ -244,17 +263,23 @@ void main() {
   test('injury, transfer and referee claims are rejected when absent from '
       'the facts', () {
     const claims = {
-      'injury': 'Saka picked up an injury in the second half and had to be '
+      'injury':
+          'Saka picked up an injury in the second half and had to be '
           'substituted, which changed the game for both sides.',
-      'transfer': 'There was a transfer rumour around the ground before the '
+      'transfer':
+          'There was a transfer rumour around the ground before the '
           'match kicked off, but neither side confirmed anything.',
-      'referee': 'The referee had a busy evening and handed out several '
+      'referee':
+          'The referee had a busy evening and handed out several '
           'bookings, but the result stood after a long check.',
-      'VAR': 'A long VAR review delayed the restart, and the crowd grew '
+      'VAR':
+          'A long VAR review delayed the restart, and the crowd grew '
           'restless as the officials checked the offside call.',
-      'suspend': 'The player faces a suspend ruling after his red card and '
+      'suspend':
+          'The player faces a suspend ruling after his red card and '
           'will sit out the next fixture for his club.',
-      'sacked': 'The board has hinted the coach could be sacked after this '
+      'sacked':
+          'The board has hinted the coach could be sacked after this '
           'defeat, though no official comment has been made so far.',
     };
     claims.forEach((label, text) {
