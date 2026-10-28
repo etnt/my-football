@@ -87,9 +87,13 @@ class GeminiNanoChannel(messenger: BinaryMessenger) : MethodChannel.MethodCallHa
         try {
             result.success(block())
         } catch (e: Exception) {
+            // Include the top frames so a bare NullPointerException says where it happened.
+            val where = e.stackTrace.take(3).joinToString(" < ") {
+                "${it.className.substringAfterLast('.')}.${it.methodName}:${it.lineNumber}"
+            }
             result.error(
                 "genai_error",
-                "${e.javaClass.simpleName}: ${e.message ?: "no message"}",
+                "${e.javaClass.simpleName}: ${e.message ?: "no message"} @ $where",
                 null,
             )
         }
