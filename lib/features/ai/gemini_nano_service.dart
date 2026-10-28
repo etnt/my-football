@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 
+import 'ai_log.dart';
 import 'ai_service.dart';
 
 /// Maps the native `status` string (ML Kit `FeatureStatus`) to an [AiAvailability].
@@ -44,13 +45,19 @@ class GeminiNanoService implements AiService {
   Future<AiAvailability> isAvailable() async {
     try {
       final result = await _channel.invokeMapMethod<String, Object?>('status');
-      return aiAvailabilityFromStatus(result?['status'] as String?);
+      final status = result?['status'] as String?;
+      if (status == null || status == 'UNKNOWN') {
+        AiLog.add('status: ${status ?? 'missing'} raw=${result?['raw']}');
+      }
+      return aiAvailabilityFromStatus(status);
     } on MissingPluginException {
+      AiLog.add('status: channel not registered (MissingPluginException)');
       return const AiAvailability(
         available: false,
         reason: AiReason.osUnsupported,
       );
-    } on PlatformException {
+    } on PlatformException catch (e) {
+      AiLog.add('status error: ${e.code}: ${e.message ?? 'no message'}');
       return const AiAvailability(available: false, reason: AiReason.unknown);
     }
   }

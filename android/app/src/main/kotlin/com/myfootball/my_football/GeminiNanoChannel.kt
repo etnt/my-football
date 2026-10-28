@@ -41,7 +41,8 @@ class GeminiNanoChannel(messenger: BinaryMessenger) : MethodChannel.MethodCallHa
         when (call.method) {
             "status" -> scope.launch {
                 guarded(result) {
-                    mapOf("status" to statusName(model.checkStatus()))
+                    val raw = model.checkStatus()
+                    mapOf("status" to statusName(raw), "raw" to raw)
                 }
             }
 
@@ -86,7 +87,11 @@ class GeminiNanoChannel(messenger: BinaryMessenger) : MethodChannel.MethodCallHa
         try {
             result.success(block())
         } catch (e: Exception) {
-            result.error("genai_error", e.message ?: e.javaClass.simpleName, null)
+            result.error(
+                "genai_error",
+                "${e.javaClass.simpleName}: ${e.message ?: "no message"}",
+                null,
+            )
         }
     }
 
