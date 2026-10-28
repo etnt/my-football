@@ -67,6 +67,31 @@ richer team data.
 - Double-tap an eligible upcoming match to set a reminder.
 - Pull down on a match list or team schedule to refresh it.
 
+### Match recaps
+
+- Tap a finished match to open its details. A short recap appears at the top,
+  above the goal list.
+- Every recap shows the final score. With a Premium key, it also lists the
+  goals and cards.
+- On supported Android phones, the recap is rewritten in prose by Gemini Nano,
+  the model built into the phone. It is labelled "Written by on-device AI".
+  Nothing is sent to a server.
+- If the on-device model is unavailable, too slow, or its text does not match
+  the match facts, the plain recap is shown instead.
+- The on-device AI needs a supported phone. As of 28 October 2026, Google lists
+  these for Gemini Nano direct model access (the feature this app uses):
+  - **Google:** Pixel 9, 10 and 11 series (including the Pro, Pro XL and Pro Fold models).
+  - **Samsung:** Galaxy S26 series, Galaxy Z Fold7, Z Fold8, Z Flip8 and Z TriFold.
+  - **Other brands:** a range of Xiaomi, OnePlus, OPPO, vivo, Honor, Motorola,
+    POCO, realme, Sony and Sharp models.
+  - Older phones, such as the Pixel 8 and Galaxy S24, are not on the list.
+    Phones with an unlocked bootloader are not supported.
+  - The list changes over time. See the **Device support** section of
+    [Google's ML Kit GenAI page](https://developers.google.com/ml-kit/genai).
+- The app does not download the Gemini Nano model itself. If the model is not
+  yet on your phone, the plain recap is shown.
+- Tap `Show facts` to see the facts the recap was built from.
+
 ### News
 
 <a href="screenshots/news-flash.jpeg"><img src="screenshots/news-flash.jpeg" alt="News Flash screenshot" width="19%"></a>
@@ -104,7 +129,8 @@ richer team data.
 ## Download & install (Android)
 
 Prebuilt Android APKs are published on the repository's
-[**Releases**](../../releases) page.
+[**Releases**](../../releases) page. They require Android 8.0 (API 26) or
+newer.
 
 1. Open the latest release and download **`app-release.apk`** (the universal
    build that works on any device). Advanced users can instead pick the smaller
