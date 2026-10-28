@@ -91,7 +91,7 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
-  testWidgets('finished with a fake valid model: AI text inside Show facts', (
+  testWidgets('finished with a fake valid model: only the AI recap is shown', (
     tester,
   ) async {
     await _pumpSection(
@@ -101,12 +101,28 @@ void main() {
       ai: FakeAiService(responseText: validModelRecap),
     );
     expect(find.text(validModelRecap), findsNothing);
+    expect(find.text('Show facts'), findsNothing);
 
-    await tester.tap(find.text('Show facts'));
+    await tester.tap(find.text('Show recap'));
     await tester.pumpAndSettle();
     expect(find.text(validModelRecap), findsOneWidget);
     expect(find.text('Written by on-device AI'), findsOneWidget);
+    // The AI recap replaces the plain fact lines.
+    expect(find.textContaining('Match: Arsenal 2–1 Chelsea'), findsNothing);
     expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    await tester.tap(find.text('Hide recap'));
+    await tester.pumpAndSettle();
+    expect(find.text(validModelRecap), findsNothing);
+  });
+
+  testWidgets('AI diagnostics panel is hidden by default', (tester) async {
+    await _pumpSection(
+      tester,
+      fixture: fixtureFinished(),
+      timelineFor: (_) => completeTimelineRed(),
+    );
+    expect(find.text('AI diagnostics'), findsNothing);
   });
 
   testWidgets('invalid model output: no AI label, no spinner', (tester) async {

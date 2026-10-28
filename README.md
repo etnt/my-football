@@ -69,15 +69,14 @@ richer team data.
 
 ### Match recaps
 
-- Tap a finished match to open its details. A short recap appears at the top,
-  above the goal list.
-- Every recap shows the final score. With a Premium key, it also lists the
-  goals and cards.
-- On supported Android phones, the recap is rewritten in prose by Gemini Nano,
-  the model built into the phone. It is labelled "Written by on-device AI".
-  Nothing is sent to a server.
+- Tap a finished match to open its details. The recap sits at the top, above
+  the goal list.
+- On supported Android phones, Gemini Nano (the model built into the phone)
+  writes a short recap in prose. Tap `Show recap` to read it. It is labelled
+  "Written by on-device AI". Nothing is sent to a server.
 - If the on-device model is unavailable, too slow, or its text does not match
-  the match facts, the plain recap is shown instead.
+  the match facts, tap `Show facts` instead to see the plain facts: the final
+  score and, with a Premium key, the goals and cards.
 - The on-device AI needs a supported phone. As of 28 October 2026, Google lists
   these for Gemini Nano direct model access (the feature this app uses):
   - **Google:** Pixel 9, 10 and 11 series (including the Pro, Pro XL and Pro Fold models).
@@ -89,8 +88,7 @@ richer team data.
   - The list changes over time. See the **Device support** section of
     [Google's ML Kit GenAI page](https://developers.google.com/ml-kit/genai).
 - The app does not download the Gemini Nano model itself. If the model is not
-  yet on your phone, the plain recap is shown.
-- Tap `Show facts` to see the facts the recap was built from.
+  yet on your phone, only `Show facts` is available.
 
 <a href="screenshots/ai-recap.jpeg"><img src="screenshots/ai-recap.jpeg" alt="AI recap screenshot" width="19%"></a>
 

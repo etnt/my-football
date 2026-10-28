@@ -1,7 +1,11 @@
 import 'package:flutter/foundation.dart';
 
-/// Recent on-device AI events, kept in memory and shown in the recap's
-/// "AI diagnostics" panel. Also written to logcat via [debugPrint].
+/// True when built with `--dart-define=AI_DIAGNOSTICS=true`. Shows the
+/// "AI diagnostics" panel under the recap. The log always goes to logcat.
+const bool aiDiagnostics = bool.fromEnvironment('AI_DIAGNOSTICS');
+
+/// Recent on-device AI events, kept in memory for the "AI diagnostics" panel
+/// and written to logcat via [debugPrint].
 class AiLog {
   AiLog._();
 

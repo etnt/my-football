@@ -47,6 +47,8 @@ class _RecapSectionState extends ConsumerState<RecapSection> {
     }
 
     final result = state.result;
+    // With an AI recap the expanded section holds prose; otherwise the facts.
+    final noun = result.aiWritten ? 'recap' : 'facts';
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
@@ -67,7 +69,7 @@ class _RecapSectionState extends ConsumerState<RecapSection> {
               const Spacer(),
               TextButton(
                 onPressed: () => setState(() => _showFacts = !_showFacts),
-                child: Text(_showFacts ? 'Hide facts' : 'Show facts'),
+                child: Text(_showFacts ? 'Hide $noun' : 'Show $noun'),
               ),
             ],
           ),
@@ -78,8 +80,7 @@ class _RecapSectionState extends ConsumerState<RecapSection> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // The on-device rewrite replaces the plain fact lines
-                    // in prose; the fact lines stay below it.
+                    // The on-device rewrite replaces the plain fact lines.
                     if (result.aiWritten) ...[
                       Text(result.text, style: theme.textTheme.bodyMedium),
                       const SizedBox(height: 4),
@@ -89,36 +90,36 @@ class _RecapSectionState extends ConsumerState<RecapSection> {
                           color: theme.colorScheme.primary,
                         ),
                       ),
-                      const SizedBox(height: 8),
-                    ],
-                    for (final line in result.facts.toFactLines())
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 2),
-                        child: Text(line, style: theme.textTheme.bodySmall),
-                      ),
+                    ] else
+                      for (final line in result.facts.toFactLines())
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 2),
+                          child: Text(line, style: theme.textTheme.bodySmall),
+                        ),
                   ],
                 ),
               ),
             ),
-          ExpansionTile(
-            tilePadding: EdgeInsets.zero,
-            dense: true,
-            title: Text('AI diagnostics', style: theme.textTheme.bodySmall),
-            childrenPadding: const EdgeInsets.only(bottom: 8),
-            children: [
-              ValueListenableBuilder<List<String>>(
-                valueListenable: AiLog.lines,
-                builder: (context, lines, _) => Text(
-                  lines.isEmpty
-                      ? 'No on-device AI events yet.'
-                      : lines.join('\n'),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
+          if (aiDiagnostics)
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              dense: true,
+              title: Text('AI diagnostics', style: theme.textTheme.bodySmall),
+              childrenPadding: const EdgeInsets.only(bottom: 8),
+              children: [
+                ValueListenableBuilder<List<String>>(
+                  valueListenable: AiLog.lines,
+                  builder: (context, lines, _) => Text(
+                    lines.isEmpty
+                        ? 'No on-device AI events yet.'
+                        : lines.join('\n'),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontFamily: 'monospace',
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
         ],
       ),
     );
