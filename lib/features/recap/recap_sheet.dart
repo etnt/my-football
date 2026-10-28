@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/fixture.dart';
+import '../ai/ai_log.dart';
 import 'recap_providers.dart';
 
 /// The recap block shown on the match goals sheet for finished fixtures.
@@ -78,6 +79,25 @@ class _RecapSectionState extends ConsumerState<RecapSection> {
               ),
             ],
           ),
+          ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            dense: true,
+            title: Text('AI diagnostics', style: theme.textTheme.bodySmall),
+            childrenPadding: const EdgeInsets.only(bottom: 8),
+            children: [
+              ValueListenableBuilder<List<String>>(
+                valueListenable: AiLog.lines,
+                builder: (context, lines, _) => Text(
+                  lines.isEmpty
+                      ? 'No on-device AI events yet.'
+                      : lines.join('\n'),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ),
+            ],
+          ),
           if (_showFacts)
             ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 160),
@@ -88,10 +108,7 @@ class _RecapSectionState extends ConsumerState<RecapSection> {
                     for (final line in result.facts.toFactLines())
                       Padding(
                         padding: const EdgeInsets.only(bottom: 2),
-                        child: Text(
-                          line,
-                          style: theme.textTheme.bodySmall,
-                        ),
+                        child: Text(line, style: theme.textTheme.bodySmall),
                       ),
                   ],
                 ),

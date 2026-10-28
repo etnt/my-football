@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../ai/ai_log.dart';
 import '../ai/ai_service.dart';
 import '../ai/output_validator.dart';
 import '../ai/prompt_templates.dart';
@@ -43,7 +44,11 @@ class RecapBuilder {
   /// Deterministic, fact-only recap. Synchronous and cheap — rebuilt on every
   /// call so it always reflects the current data.
   RecapResult template(FactSheet facts) {
-    return RecapResult(text: buildTemplateRecap(facts), aiWritten: false, facts: facts);
+    return RecapResult(
+      text: buildTemplateRecap(facts),
+      aiWritten: false,
+      facts: facts,
+    );
   }
 
   /// Whether a model rewrite is worth attempting: without a complete goal
@@ -74,14 +79,24 @@ class RecapBuilder {
     //    under one hard timeout, so neither a hung `isAvailable()` nor a
     //    slow generate can leave the spinner up.
     String? generated;
+    final clock = Stopwatch()..start();
     try {
       generated = await _checkAndGenerate(facts).timeout(timeout);
     } on TimeoutException {
+      _log(
+        'timed out after ${clock.elapsedMilliseconds} ms '
+        '(limit ${timeout.inMilliseconds} ms)',
+      );
       return null;
-    } on Exception {
+    } on Exception catch (e) {
+      _log('failed after ${clock.elapsedMilliseconds} ms: $e');
       return null;
     }
-    if (generated == null || generated.trim().isEmpty) return null;
+    if (generated == null || generated.trim().isEmpty) {
+      _log('no text returned after ${clock.elapsedMilliseconds} ms');
+      return null;
+    }
+    _log('model text received after ${clock.elapsedMilliseconds} ms');
 
     // 3. Guard against hallucination before showing or caching anything.
     final validation = validateRecapText(generated, facts);
@@ -101,6 +116,10 @@ class RecapBuilder {
   /// a hung `isAvailable()` must fail exactly like a hung `generate()`.
   Future<String?> _checkAndGenerate(FactSheet facts) async {
     final availability = await _ai.isAvailable();
+    _log(
+      'availability: available=${availability.available} '
+      'reason=${availability.reason.name}',
+    );
     if (!availability.available) return null;
 
     final result = await _ai.generate(
@@ -108,10 +127,18 @@ class RecapBuilder {
       maxTokens: 200,
       temperature: 0.3,
     );
+    _log(
+      result.text != null
+          ? 'generate ok (${result.text!.length} chars)'
+          : 'generate error: ${result.errorCode}',
+    );
     return result.text;
   }
 
   String _cacheKey(int fixtureId) => 'recap_${fixtureId}_$recapPromptVersion';
+
+  /// Shown in the recap's "AI diagnostics" panel and written to logcat.
+  static void _log(String message) => AiLog.add(message);
 }
 
 /// Fact-only fallback text shown while the model is unavailable or pending.

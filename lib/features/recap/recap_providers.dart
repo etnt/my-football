@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/storage/cache_store.dart';
+import '../ai/ai_log.dart';
 import '../../models/fixture.dart';
 import '../../models/match_timeline.dart';
 import '../../providers/app_providers.dart';
@@ -67,26 +68,27 @@ class RecapNotifier
     return timelineFuture
         .catchError((Object _, StackTrace _) => const MatchTimeline())
         .then((timeline) {
-      final facts = FactSheet.build(
-        fixture: fixture,
-        timeline: timeline,
-        competition: request.competition,
-      );
-      final template = builder.template(facts);
+          final facts = FactSheet.build(
+            fixture: fixture,
+            timeline: timeline,
+            competition: request.competition,
+          );
+          final template = builder.template(facts);
 
-      // 3. Skip the model when the fact sheet can't support a rewrite —
-      //    the builder owns that rule. The builder itself was resolved
-      //    once at the top of build(), before the async gap, so this
-      //    callback must not touch ref after an await.
-      if (!builder.shouldTryModel(facts)) {
-        return RecapState(result: template, modelPending: false);
-      }
+          // 3. Skip the model when the fact sheet can't support a rewrite —
+          //    the builder owns that rule. The builder itself was resolved
+          //    once at the top of build(), before the async gap, so this
+          //    callback must not touch ref after an await.
+          if (!builder.shouldTryModel(facts)) {
+            AiLog.add('model skipped: no goal data (score only)');
+            return RecapState(result: template, modelPending: false);
+          }
 
-      // 4. Fire the model rewrite in the background so the template shows
-      //    immediately.
-      _rewriteInBackground(facts, builder, template);
-      return RecapState(result: template, modelPending: true);
-    });
+          // 4. Fire the model rewrite in the background so the template shows
+          //    immediately.
+          _rewriteInBackground(facts, builder, template);
+          return RecapState(result: template, modelPending: true);
+        });
   }
 
   Future<void> _rewriteInBackground(
@@ -98,10 +100,7 @@ class RecapNotifier
     // Guard: the sheet may have been closed while we were generating.
     if (_disposed) return;
     state = AsyncData(
-      RecapState(
-        result: model ?? template,
-        modelPending: false,
-      ),
+      RecapState(result: model ?? template, modelPending: false),
     );
   }
 }
