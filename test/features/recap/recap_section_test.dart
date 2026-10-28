@@ -75,35 +75,41 @@ void main() {
     expect(find.textContaining('Goals:'), findsNothing);
   });
 
-  testWidgets('finished with timeline: template text, no AI label',
-      (tester) async {
+  testWidgets('finished with timeline: no recap sentence by default', (
+    tester,
+  ) async {
     await _pumpSection(
       tester,
       fixture: fixtureFinished(),
       timelineFor: (_) => completeTimelineRed(),
     );
-
-    expect(find.text(templateRecap), findsOneWidget);
+    // The goal list below the sheet already shows these details, so the
+    // template sentence stays out of the default view.
+    expect(find.text(templateRecap), findsNothing);
+    expect(find.text('Show facts'), findsOneWidget);
     expect(find.text('Written by on-device AI'), findsNothing);
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
-  testWidgets('finished with a fake valid model: AI text and label',
-      (tester) async {
+  testWidgets('finished with a fake valid model: AI text inside Show facts', (
+    tester,
+  ) async {
     await _pumpSection(
       tester,
       fixture: fixtureFinished(),
       timelineFor: (_) => completeTimelineRed(),
       ai: FakeAiService(responseText: validModelRecap),
     );
+    expect(find.text(validModelRecap), findsNothing);
 
+    await tester.tap(find.text('Show facts'));
+    await tester.pumpAndSettle();
     expect(find.text(validModelRecap), findsOneWidget);
     expect(find.text('Written by on-device AI'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
-  testWidgets('invalid model output: template stays, no label, no spinner',
-      (tester) async {
+  testWidgets('invalid model output: no AI label, no spinner', (tester) async {
     await _pumpSection(
       tester,
       fixture: fixtureFinished(),
@@ -114,35 +120,36 @@ void main() {
             'and the home side controlled the rest of the game fully.',
       ),
     );
-
-    expect(find.text(templateRecap), findsOneWidget);
+    await tester.tap(find.text('Show facts'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('9 to 1'), findsNothing);
     expect(find.text('Written by on-device AI'), findsNothing);
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
-  testWidgets('timeout: template stays and no spinner is left', (tester) async {
+  testWidgets('timeout: no spinner is left and no AI label', (tester) async {
     await _pumpSection(
       tester,
       fixture: fixtureFinished(),
       timelineFor: (_) => completeTimelineRed(),
       ai: FakeAiService(
         responseText: validModelRecap,
-        delay: const Duration(seconds: 2),
+        delay: const Duration(seconds: 5),
       ),
       builderTimeout: const Duration(milliseconds: 100),
     );
-
-    expect(find.text(templateRecap), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.tap(find.text('Show facts'));
+    await tester.pumpAndSettle();
     expect(find.text('Written by on-device AI'), findsNothing);
     expect(find.byType(CircularProgressIndicator), findsNothing);
-
-    // The abandoned generate call still has its fake delay timer running;
-    // pump past it so no pending timer is left at teardown.
-    await tester.pump(const Duration(seconds: 3));
+    // pump past the delay so no pending timer is left at teardown.
+    await tester.pump(const Duration(seconds: 6));
   });
 
-  testWidgets('"Show facts" toggle shows and hides the fact lines',
-      (tester) async {
+  testWidgets('"Show facts" toggle shows and hides the fact lines', (
+    tester,
+  ) async {
     await _pumpSection(
       tester,
       fixture: fixtureFinished(),
@@ -164,14 +171,11 @@ void main() {
     expect(find.textContaining('Match: Arsenal 2–1 Chelsea'), findsNothing);
   });
 
-  testWidgets('timeline error: score-only recap, no crash', (tester) async {
-    await _pumpSection(
-      tester,
-      fixture: fixtureFinished(),
-      throwTimeline: true,
-    );
-
-    expect(find.text('Arsenal 2–1 Chelsea.'), findsOneWidget);
+  testWidgets('timeline error: score-only facts, no crash', (tester) async {
+    await _pumpSection(tester, fixture: fixtureFinished(), throwTimeline: true);
     expect(find.byType(CircularProgressIndicator), findsNothing);
+    await tester.tap(find.text('Show facts'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Match: Arsenal 2–1 Chelsea'), findsOneWidget);
   });
 }

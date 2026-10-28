@@ -49,29 +49,21 @@ class _RecapSectionState extends ConsumerState<RecapSection> {
     final result = state.result;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(result.text, style: theme.textTheme.bodyMedium),
-          const SizedBox(height: 4),
           Row(
             children: [
               if (state.modelPending)
-                const SizedBox(
-                  height: 14,
-                  width: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              if (result.aiWritten) ...[
-                if (state.modelPending) const SizedBox(width: 8),
-                Text(
-                  'Written by on-device AI',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.primary,
+                const Padding(
+                  padding: EdgeInsets.only(right: 8),
+                  child: SizedBox(
+                    height: 14,
+                    width: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
                   ),
                 ),
-              ],
               const Spacer(),
               TextButton(
                 onPressed: () => setState(() => _showFacts = !_showFacts),
@@ -79,6 +71,35 @@ class _RecapSectionState extends ConsumerState<RecapSection> {
               ),
             ],
           ),
+          if (_showFacts)
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 220),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // The on-device rewrite replaces the plain fact lines
+                    // in prose; the fact lines stay below it.
+                    if (result.aiWritten) ...[
+                      Text(result.text, style: theme.textTheme.bodyMedium),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Written by on-device AI',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    for (final line in result.facts.toFactLines())
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: Text(line, style: theme.textTheme.bodySmall),
+                      ),
+                  ],
+                ),
+              ),
+            ),
           ExpansionTile(
             tilePadding: EdgeInsets.zero,
             dense: true,
@@ -98,22 +119,6 @@ class _RecapSectionState extends ConsumerState<RecapSection> {
               ),
             ],
           ),
-          if (_showFacts)
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 160),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    for (final line in result.facts.toFactLines())
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 2),
-                        child: Text(line, style: theme.textTheme.bodySmall),
-                      ),
-                  ],
-                ),
-              ),
-            ),
         ],
       ),
     );
