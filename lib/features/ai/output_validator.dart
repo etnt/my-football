@@ -68,7 +68,8 @@ ValidationResult validateRecapText(String text, FactSheet facts) {
   for (final match in numberPattern.allMatches(trimmed)) {
     if (!facts.allowedNumbers.contains(match.group(0))) {
       debugPrint(
-          'validateRecapText: rejected (${RejectReason.unknownNumber.name})');
+        'validateRecapText: rejected (${RejectReason.unknownNumber.name})',
+      );
       return const ValidationResult.failure(RejectReason.unknownNumber);
     }
   }
@@ -100,7 +101,8 @@ ValidationResult validateRecapText(String text, FactSheet facts) {
     );
     if (!known) {
       debugPrint(
-          'validateRecapText: rejected (${RejectReason.unknownName.name})');
+        'validateRecapText: rejected (${RejectReason.unknownName.name})',
+      );
       return const ValidationResult.failure(RejectReason.unknownName);
     }
   }
@@ -137,7 +139,8 @@ ValidationResult validateRecapText(String text, FactSheet facts) {
     );
     if (!factWord.hasMatch(factText)) {
       debugPrint(
-          'validateRecapText: rejected (${RejectReason.forbiddenClaim.name})');
+        'validateRecapText: rejected (${RejectReason.forbiddenClaim.name})',
+      );
       return const ValidationResult.failure(RejectReason.forbiddenClaim);
     }
   }

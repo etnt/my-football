@@ -30,7 +30,8 @@ android {
         applicationId = "com.myfootball.my_football"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // ML Kit GenAI (Gemini Nano) requires API 26; Flutter's default is 24.
+        minSdk = 26
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -69,6 +70,8 @@ kotlin {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // On-device Gemini Nano via AICore (direct model access, beta).
+    implementation("com.google.mlkit:genai-prompt:1.0.0-beta4")
 }
 
 flutter {
