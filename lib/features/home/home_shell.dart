@@ -25,6 +25,18 @@ import 'update_prompt.dart';
 class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({super.key});
 
+  /// Seasons offered in the picker (starting year), newest first. Derived from
+  /// [latestSeason] so the picker's first item always matches the default.
+  /// Exposed for tests: `seasons.first` must equal `latestSeason`.
+  static const seasons = [
+    latestSeason,
+    latestSeason - 1,
+    latestSeason - 2,
+    latestSeason - 3,
+    latestSeason - 4,
+    latestSeason - 5,
+  ];
+
   @override
   ConsumerState<HomeShell> createState() => _HomeShellState();
 }
@@ -33,9 +45,6 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   int _index = 0;
   bool _updateCheckStarted = false;
 
-  // Seasons offered in the picker (starting year). The current season may be
-  // sparse; older seasons usually have a complete table.
-  static const _seasons = [2026, 2025, 2024, 2023, 2022, 2021];
   @override
   void initState() {
     super.initState();
@@ -140,7 +149,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       body: Column(
         children: [
           const _LeaguePicker(),
-          _SeasonPicker(seasons: _seasons),
+          _SeasonPicker(seasons: HomeShell.seasons),
           const Divider(height: 1),
           Expanded(child: bodies[index]),
         ],

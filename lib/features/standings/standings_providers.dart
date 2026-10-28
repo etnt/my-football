@@ -74,9 +74,12 @@ class FollowedLeaguesNotifier extends Notifier<List<League>> {
   }
 }
 
-/// Selected season (starting year). `2025` (2025-2026) is a good default with a
-/// complete table; the in-progress current season may be sparse.
-final seasonProvider = StateProvider<int>((ref) => 2025);
+/// The latest season (starting year) offered by default. `2026` (2026-2027)
+/// is the current, in-progress season; its table may be sparse early on.
+const latestSeason = 2026;
+
+/// Selected season (starting year). Defaults to [latestSeason].
+final seasonProvider = StateProvider<int>((ref) => latestSeason);
 
 /// Whether the selected league's seasons are indexed as `YYYY-YYYY` (as opposed
 /// to a single calendar year, like Allsvenskan's). Drives the season picker's
