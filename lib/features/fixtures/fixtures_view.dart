@@ -8,6 +8,7 @@ import '../lineups/lineup_sheet.dart';
 import '../reminders/match_reminder.dart';
 import '../reminders/reminder_sheet.dart';
 import '../live/live_match_goals_sheet.dart';
+import '../predictions/prediction_sheet.dart';
 import 'fixtures_providers.dart';
 import 'fixtures_repository.dart';
 import 'widgets/fixture_tile.dart';
@@ -81,10 +82,8 @@ class _GroupedFixtureList extends StatelessWidget {
       // Preserves each section's expanded/collapsed state while scrolling.
       key: const PageStorageKey('fixtures-groups'),
       itemCount: groups.length,
-      itemBuilder: (context, i) => _MatchweekSection(
-        group: groups[i],
-        initiallyExpanded: i == 0,
-      ),
+      itemBuilder: (context, i) =>
+          _MatchweekSection(group: groups[i], initiallyExpanded: i == 0),
     );
   }
 
@@ -161,11 +160,14 @@ class _MatchweekSection extends ConsumerWidget {
                           ? () => showMatchGoalsSheet(context, f)
                           : null,
                       onDoubleTap: f.isFinished
-                          ? () =>
-                                showLineupSheet(context, fixture: f)
+                          ? () => showLineupSheet(context, fixture: f)
                           : MatchReminder.canRemind(f)
-                              ? () => showReminderSheet(context, ref, f)
-                              : null,
+                          ? () => showReminderSheet(context, ref, f)
+                          : null,
+                      // Eligible = the same rule as reminders (REQ-002).
+                      onLongPress: MatchReminder.canRemind(f)
+                          ? () => showPredictionSheet(context, ref, f)
+                          : null,
                     ),
                     const Divider(height: 1),
                   ],

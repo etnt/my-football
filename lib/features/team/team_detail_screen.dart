@@ -7,6 +7,8 @@ import '../../shared/widgets/message_view.dart';
 import '../fixtures/widgets/fixture_tile.dart';
 import '../lineups/lineup_sheet.dart';
 import '../live/live_match_goals_sheet.dart';
+import '../predictions/team_form.dart';
+import '../predictions/prediction_sheet.dart';
 import '../reminders/match_reminder.dart';
 import '../reminders/reminder_sheet.dart';
 import 'team_providers.dart';
@@ -71,22 +73,23 @@ class _TeamBody extends ConsumerWidget {
       );
     }
 
-    final byDate = [...fixtures]..sort((a, b) => a.dateUtc.compareTo(b.dateUtc));
+    final byDate = [...fixtures]
+      ..sort((a, b) => a.dateUtc.compareTo(b.dateUtc));
     final finished = byDate.where((f) => f.isFinished).toList();
     final upcoming = byDate.where((f) => !f.isFinished).toList();
 
     final results = finished.reversed.toList();
     final next = upcoming;
-    // Last five results in chronological order for the form strip.
-    final form = finished
-        .map((f) => f.resultFor(teamId))
-        .whereType<String>()
-        .toList();
-    final recentForm = form.length <= 5 ? form : form.sublist(form.length - 5);
+    // Last five results, newest first from the shared helper; the strip
+    // reads oldest-to-newest, so reverse it. Distinct kick-off times keep
+    // their chronological order; fixtures with the same kick-off time are
+    // now ordered by fixture id (newest first) instead of the order being
+    // left unspecified by the old comparator.
+    final formStrip = recentForm(teamId, fixtures).reversed.toList();
 
     return ListView(
       children: [
-        _Header(teamName: teamName, teamLogo: teamLogo, form: recentForm),
+        _Header(teamName: teamName, teamLogo: teamLogo, form: formStrip),
         if (results.isNotEmpty) ...[
           const _SectionHeader('Results'),
           for (final f in results)
@@ -94,9 +97,12 @@ class _TeamBody extends ConsumerWidget {
               fixture: f,
               // Finished results open the goals sheet on tap (issue #5) and
               // the match line-up on double-tap (issue #8).
-              onTap: f.isFinished ? () => showMatchGoalsSheet(context, f) : null,
-              onDoubleTap:
-                  f.isFinished ? () => showLineupSheet(context, fixture: f) : null,
+              onTap: f.isFinished
+                  ? () => showMatchGoalsSheet(context, f)
+                  : null,
+              onDoubleTap: f.isFinished
+                  ? () => showLineupSheet(context, fixture: f)
+                  : null,
             ),
         ],
         if (next.isNotEmpty) ...[
@@ -105,9 +111,13 @@ class _TeamBody extends ConsumerWidget {
             FixtureTile(
               fixture: f,
               // Only upcoming, not-yet-started matches offer a kick-off
-              // reminder (REQ-006).
+              // reminder (REQ-006); the same rule gates the prediction
+              // long press (REQ-002).
               onDoubleTap: MatchReminder.canRemind(f)
                   ? () => showReminderSheet(context, ref, f)
+                  : null,
+              onLongPress: MatchReminder.canRemind(f)
+                  ? () => showPredictionSheet(context, ref, f)
                   : null,
             ),
         ],
@@ -211,10 +221,9 @@ class _SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Text(
         title,
-        style: Theme.of(context)
-            .textTheme
-            .labelLarge
-            ?.copyWith(fontWeight: FontWeight.bold),
+        style: Theme.of(
+          context,
+        ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
       ),
     );
   }

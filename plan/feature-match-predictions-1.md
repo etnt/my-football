@@ -2,7 +2,7 @@
 goal: Estimate likely outcomes for upcoming matches and explain the factors
 version: 1.2
 date_created: 2026-10-31
-last_updated: 2026-10-31
+last_updated: 2026-11-01
 owner: my-football maintainers
 status: 'Proposed'
 tags: [feature, fixtures, prediction, standings, ai]
@@ -266,8 +266,10 @@ Each factor creates one `PredictionReason { factor, favours (home/away/none),
 text, numbers }`. Example texts:
 
 - "Arsenal are 3rd, Fulham are 12th (2.1 vs 1.3 points per game)."
-- "Fulham have the better recent form: 10 of 15 points vs 4 of 15, with
-  recent matches counting more."
+- "Fulham's recent form has the more favourable form adjustment: 10 of 15
+  points vs 4 of 15, with recent matches counting more." (The wording names
+  the side whose form term is higher after adjustment; it does not claim that
+  side has the higher raw points, which can disagree.)
 - "Arsenal have won their last 3." / "Fulham have lost their last 2."
   (streak lines, length ≥ 2, `favours` the team on a winning streak or
   against the team on a losing streak. Display only: the streak is already
@@ -303,40 +305,48 @@ good. This is TASK-024 and is optional.
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-019 | **Required, do first.** Learn the `strForm` letter order. With a Premium key (full season events), compare `TeamStanding.form` with `recentForm` for at least 5 teams in 2 leagues, after a match day. Set `const standingsFormOrder` in `team_form.dart` to `newestFirst` or `oldestFirst`, and record the evidence in this plan. If it is inconsistent or there is no Premium key, leave it `unknown` (counts only for source B). Add a test that pins the chosen value. | | |
-| TASK-001 | Create `lib/features/predictions/team_form.dart`: `enum FormOrder { newestFirst, oldestFirst, unknown }`; `const standingsFormOrder` (TASK-019); `List<String> recentForm(int teamId, Iterable<Fixture> events, {DateTime? before, int limit = 5})` returns W/D/L **newest first** from finished fixtures; `({List<String> results, bool ordered})? parseStandingForm(String raw)` returns null unless it matches `^[WDL]{1,5}$` (case-insensitive), and when the order is known normalizes the results to newest first; `int currentStreak(List<String> newestFirst)` returns the length of the leading run (0 if < 2). | | |
-| TASK-002 | Refactor `TeamDetailScreen` to use `recentForm`. `recentForm` returns newest first, so reverse it for the existing oldest-to-newest form strip (no behavior change). | | |
-| TASK-003 | Create `prediction_input.dart`: `FormSource { seasonEvents, standingsForm, none }`, `TeamFactors { teamId, name, rank, played, points, goalsDiff, List<String> form (newest first), bool formOrdered, FormSource formSource }`, `PredictionInput { fixture, home, away, leagueAvgPpg, sameGroup }`. | | |
-| TASK-004 | Create `prediction_result.dart`: `Outcome { home, draw, away }`, `Verdict { homeWin, awayWin, closeDrawLikely }`, `PredictionReason`, `Completeness`, `PredictionResult { pHome, pDraw, pAway, displayPercents (int, sum 100), verdict, isSlight, reasons, missingNotes, completeness, formulaVersion }`, and `PredictionUnavailable { reason }`. | | |
-| TASK-005 | Create `prediction_calculator.dart`: `PredictionWeights` (k = 3, gd = 0.25, form = 0.35, recency = [1.0, 0.9, 0.8, 0.7, 0.6], `recencyWeighting = true`, H = 0.20, a = 1.6, c = 0.55, version `'v1'`) and `PredictionCalculator.calculate(PredictionInput) → PredictionResult`, implementing §4.1–4.6, including largest-remainder rounding. | | |
-| TASK-006 | Tests `test/features/predictions/team_form_test.dart` and `prediction_calculator_test.dart`: probabilities sum to 1 and display percents to 100; the reference values in §4.3 (±1 point); equal teams → home win, slight favourite; `d ≈ 0` → "Close – draw likely"; a stronger home team → home win; with H = 0, swapping the teams mirrors the result; missing form never lowers strength below table-only strength; `played = 0` does not divide by zero; invalid `strForm` is rejected; reasons quote only input numbers. Recency: WWWLL scores 2.03 and LLWWW scores 1.58 (newest first, ±0.01); unordered form or `recencyWeighting = false` gives 1.8 for both; with weighting, the rising team gets a higher home-win chance than the falling team, all else equal; streak lines appear for runs ≥ 2 and do not change the probabilities; the order note appears for unordered source B. | | |
+| TASK-019 | **Required, do first.** Learn the `strForm` letter order. With a Premium key (full season events), compare `TeamStanding.form` with `recentForm` for at least 5 teams in 2 leagues, after a match day. Set `const standingsFormOrder` in `team_form.dart` to `newestFirst` or `oldestFirst`, and record the evidence in this plan. If it is inconsistent or there is no Premium key, leave it `unknown` (counts only for source B). Add a test that pins the chosen value. | ✅ (kept `unknown`) | 2026-11-01 |
+| TASK-001 | Create `lib/features/predictions/team_form.dart`: `enum FormOrder { newestFirst, oldestFirst, unknown }`; `const standingsFormOrder` (TASK-019); `List<String> recentForm(int teamId, Iterable<Fixture> events, {DateTime? before, int limit = 5})` returns W/D/L **newest first** from finished fixtures; `({List<String> results, bool ordered})? parseStandingForm(String raw)` returns null unless it matches `^[WDL]{1,5}$` (case-insensitive), and when the order is known normalizes the results to newest first; `int currentStreak(List<String> newestFirst)` returns the length of the leading run (0 if < 2). | ✅ | 2026-11-01 |
+| TASK-002 | Refactor `TeamDetailScreen` to use `recentForm`. `recentForm` returns newest first, so reverse it for the existing oldest-to-newest form strip. Distinct kick-off times keep their chronological order; fixtures with the same kick-off time are now ordered by fixture id (newest first) instead of the order being left unspecified by the old comparator. | ✅ | 2026-11-01 |
+| TASK-003 | Create `prediction_input.dart`: `FormSource { seasonEvents, standingsForm, none }`, `TeamFactors { teamId, name, rank, played, points, goalsDiff, List<String> form (newest first), bool formOrdered, FormSource formSource }`, `PredictionInput { fixture, home, away, leagueAvgPpg, sameGroup }`. | ✅ | 2026-11-01 |
+| TASK-004 | Create `prediction_result.dart`: `Outcome { home, draw, away }`, `Verdict { homeWin, awayWin, closeDrawLikely }`, `PredictionReason`, `Completeness`, `PredictionResult { pHome, pDraw, pAway, displayPercents (int, sum 100), verdict, isSlight, reasons, missingNotes, completeness, formulaVersion }`, and `PredictionUnavailable { reason }`. | ✅ | 2026-11-01 |
+| TASK-005 | Create `prediction_calculator.dart`: `PredictionWeights` (k = 3, gd = 0.25, form = 0.35, recency = [1.0, 0.9, 0.8, 0.7, 0.6], `recencyWeighting = true`, H = 0.20, a = 1.6, c = 0.55, version `'v1'`) and `PredictionCalculator.calculate(PredictionInput) → PredictionResult`, implementing §4.1–4.6, including largest-remainder rounding. | ✅ | 2026-11-01 |
+| TASK-006 | Tests `test/features/predictions/team_form_test.dart` and `prediction_calculator_test.dart`: probabilities sum to 1 and display percents to 100; the reference values in §4.3 (±1 point); equal teams → home win, slight favourite; `d ≈ 0` → "Close – draw likely"; a stronger home team → home win; with H = 0, swapping the teams mirrors the result; missing form never lowers strength below table-only strength; `played = 0` does not divide by zero; invalid `strForm` is rejected; reasons quote only input numbers. Recency: WWWLL scores 2.03 and LLWWW scores 1.58 (newest first, ±0.01); unordered form or `recencyWeighting = false` gives 1.8 for both; with weighting, the rising team gets a higher home-win chance than the falling team, all else equal; streak lines appear for runs ≥ 2 and do not change the probabilities; the order note appears for unordered source B. | ✅ | 2026-11-01 |
+
+TASK-019 outcome: `standingsFormOrder` stays `FormOrder.unknown` for v1.
+No Premium key (full season events) was available in this environment, so
+the `strForm` letter order could not be verified against derived recent
+form. Per RISK-006 the safe default is kept: `strForm` counts only as an
+unordered source (plain counts), and the pinned test in
+`test/features/predictions/team_form_test.dart` keeps the value in place.
+Revisit when Premium evidence exists.
 
 ### Phase 2 – Data and provider
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-007 | Add a public `Future<List<Fixture>> getSeasonEvents({league, season})` to `FixturesRepository` (wrapping the existing private `_seasonEvents`), so prediction code reuses the shared cache. | | |
-| TASK-008 | Create `prediction_repository.dart`: `PredictionRepository(standings, fixtures)`. `Future<PredictionInput> build(...)` loads both cached sources in parallel and finds both teams by `teamId`. It throws `PredictionUnavailable` if either team is missing (REQ-007). It picks the form source per §4.1 and computes `leagueAvgPpg`. | | |
-| TASK-009 | Create `prediction_providers.dart`: `predictionRepositoryProvider` and `predictionProvider = FutureProvider.autoDispose.family<PredictionResult, PredictionKey>`, with `PredictionKey = ({int fixtureId, int leagueId, int season})`. | | |
-| TASK-010 | Tests `prediction_repository_test.dart` with fake repositories: team missing from the table; derived form preferred when ≥ 3 results; fallback to `strForm`; no form; standings API failure with a cached copy; no extra client calls beyond the two repositories (REQ-008). | | |
+| TASK-007 | Add a public `Future<List<Fixture>> getSeasonEvents({league, season})` to `FixturesRepository` (wrapping the existing private `_seasonEvents`), so prediction code reuses the shared cache. | ✅ | 2026-11-01 |
+| TASK-008 | Create `prediction_repository.dart`: `PredictionRepository(standings, fixtures)`. `Future<PredictionInput> build(...)` loads both cached sources in parallel and finds both teams by `teamId`. It throws `PredictionUnavailable` if either team is missing (REQ-007). It picks the form source per §4.1 and computes `leagueAvgPpg`. | ✅ | 2026-11-01 |
+| TASK-009 | Create `prediction_providers.dart`: `predictionRepositoryProvider` and `predictionProvider = FutureProvider.autoDispose.family<PredictionResult, PredictionKey>`, with `PredictionKey = ({int fixtureId, int leagueId, int season})`. | ✅ | 2026-11-01 |
+| TASK-010 | Tests `prediction_repository_test.dart` with fake repositories: team missing from the table; derived form preferred when ≥ 3 results; fallback to `strForm`; no form; standings API failure with a cached copy; no extra client calls beyond the two repositories (REQ-008). | ✅ | 2026-11-01 |
 
 ### Phase 3 – Long-press UI
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-011 | `FixtureTile`: add `final VoidCallback? onLongPress;` and pass it to `InkWell`. Add a semantics hint "Long press for prediction" when it is set. | | |
-| TASK-012 | `FixturesView._MatchweekSection`: `onLongPress: MatchReminder.canRemind(f) ? () => showPredictionSheet(context, f) : null`. | | |
-| TASK-013 | `TeamDetailScreen` upcoming list: the same wiring. | | |
-| TASK-014 | Create `prediction_sheet.dart`: `showPredictionSheet` with `showModalBottomSheet(isScrollControlled: true, showDragHandle: true)`, like the recap and reminder sheets. Content: teams and local kickoff; the verdict; a three-segment bar with labelled percentages ("Arsenal 52%", "Draw 24%", "Fulham 24%"); "Why this estimate?" reasons; missing-data and early-season notes; the disclaimer (REQ-010). States: loading, `PredictionUnavailable` (message), error (`ApiErrorView`). | | |
-| TASK-015 | Widget tests `test/features/predictions/prediction_sheet_test.dart` and an addition to the fixture tests: a long press opens the sheet; a double-tap still opens the reminder sheet; live, postponed, finished and past fixtures have no long press; the sheet renders the percentages as text; there is no overflow at text scale 2.0. | | |
+| TASK-011 | `FixtureTile`: add `final VoidCallback? onLongPress;` and pass it to `InkWell`. Add a semantics hint "Long press for prediction" when it is set. | ✅ | 2026-11-01 |
+| TASK-012 | `FixturesView._MatchweekSection`: `onLongPress: MatchReminder.canRemind(f) ? () => showPredictionSheet(context, f) : null`. | ✅ | 2026-11-01 |
+| TASK-013 | `TeamDetailScreen` upcoming list: the same wiring. | ✅ | 2026-11-01 |
+| TASK-014 | Create `prediction_sheet.dart`: `showPredictionSheet` with `showModalBottomSheet(isScrollControlled: true, showDragHandle: true)`, like the recap and reminder sheets. Content: teams and local kickoff; the verdict; a three-segment bar with labelled percentages ("Arsenal 52%", "Draw 24%", "Fulham 24%"); "Why this estimate?" reasons; missing-data and early-season notes; the disclaimer (REQ-010). States: loading, `PredictionUnavailable` (message), error (`ApiErrorView`). | ✅ | 2026-11-01 |
+| TASK-015 | Widget tests `test/features/predictions/prediction_sheet_test.dart` and an addition to the fixture tests: a long press opens the sheet; a double-tap still opens the reminder sheet; live, postponed, finished and past fixtures have no long press; the sheet renders the percentages as text; there is no overflow at text scale 2.0. | ✅ | 2026-11-01 |
 
 ### Phase 4 – Docs and verification
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-016 | `README.md` fixtures and team sections: "Long press an upcoming match to see a predicted result and the reasons." Mention the estimate disclaimer and the free-key form limits. | | |
-| TASK-017 | Run `flutter analyze` (zero new warnings) and `flutter test` (all pass). | | |
-| TASK-018 | Manual check on the free key and a Premium key: the form source shown matches expectations, and the numbers look plausible for top-vs-bottom and mid-vs-mid matches. | | |
+| TASK-016 | `README.md` fixtures and team sections: "Long press an upcoming match to see a predicted result and the reasons." Mention the estimate disclaimer and the free-key form limits. | ✅ | 2026-11-01 |
+| TASK-017 | Run `flutter analyze` (zero new warnings) and `flutter test` (all pass). | ✅ | 2026-11-01 |
+| TASK-018 | Manual check on the free key and a Premium key: the form source shown matches expectations, and the numbers look plausible for top-vs-bottom and mid-vs-mid matches. Needs a real device plus free and Premium API keys; cannot be verified in this environment, so it stays open. | | |
 
 ### Phase 5 – Optional Gemini Nano prose (not in v1 by default)
 
@@ -379,10 +389,11 @@ good. This is TASK-024 and is optional.
   versioned weights and optional TASK-024.
 - **RISK-003**: A long press can be hard to discover. Mitigated by the
   semantics hint and the README. A one-time snackbar hint is possible later.
-- **RISK-004**: Standings may be up to 6 h old after a match day. The sheet
-  says "Based on the table as of <cache time>" when it is older than 6 h
-  (the fallback cache). This needs `StandingsRepository` to return the cache
-  entry time with the table. Add this in TASK-008, or drop the note from v1.
+- **RISK-004**: Standings may be up to 6 h old after a match day. A
+  "Based on the table as of <cache time>" note would need
+  `StandingsRepository` to return the cache entry time with the table.
+  **Dropped from v1**: the sheet shows no table-as-of line, so no entry time
+  is returned. Revisit if the age of the table needs to be visible.
 - **RISK-006**: A wrong `standingsFormOrder` reverses the form curve, so a
   falling team looks like a rising one. Mitigated by TASK-019 (evidence
   before setting the constant), a pinned test, and `unknown` as the safe

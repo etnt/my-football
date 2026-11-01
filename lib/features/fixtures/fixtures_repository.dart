@@ -24,7 +24,8 @@ class FixturesRepository {
   late final LeagueSeasonResolver _seasons;
 
   /// Shared cache key so results/upcoming/team views reuse one network call.
-  String _cacheKey(int leagueId, int season) => 'season_events_${leagueId}_$season';
+  String _cacheKey(int leagueId, int season) =>
+      'season_events_${leagueId}_$season';
 
   Future<List<Fixture>> getFixtures({
     required League league,
@@ -38,6 +39,21 @@ class FixturesRepository {
       forceRefresh: forceRefresh,
     );
     return _split(events, mode);
+  }
+
+  /// The full cached season-event list (results and upcoming), shared with
+  /// the results/upcoming views. Prediction code reads this instead of making
+  /// its own calls (REQ-008).
+  Future<List<Fixture>> getSeasonEvents({
+    required League league,
+    required int season,
+    bool forceRefresh = false,
+  }) {
+    return _seasonEvents(
+      league: league,
+      season: season,
+      forceRefresh: forceRefresh,
+    );
   }
 
   Future<List<Fixture>> _seasonEvents({

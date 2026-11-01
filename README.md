@@ -54,6 +54,12 @@ richer team data.
 - In `Results`, tap a finished match to view its goal details.
 - Double-tap a finished match to view its line-up.
 - In `Upcoming`, double-tap a future match to set a kick-off reminder.
+- Long press a future match to see a predicted result: the estimated home
+  win, draw and away win chances, a verdict, and the reasons behind them.
+- The prediction is an estimate based on the league table and recent form.
+  It is not betting advice.
+- With a free API key, recent form can be incomplete; the sheet says when
+  data is missing instead of guessing.
 - A single tap on an upcoming match does not open it.
 - A reminder is available only before kick-off for a match that is not postponed.
 - Choose `Off`, `15 min`, `30 min`, `60 min`, or `120 min` before kick-off.
@@ -65,6 +71,7 @@ richer team data.
 - On a team's details page, tap a finished match for goal details.
 - Double-tap a finished match to view its line-up.
 - Double-tap an eligible upcoming match to set a reminder.
+- Long press a future match to see a predicted result and the reasons for it.
 - Pull down on a match list or team schedule to refresh it.
 
 ### Match recaps

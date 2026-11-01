@@ -9,52 +9,59 @@ class FixtureTile extends StatelessWidget {
     required this.fixture,
     this.onTap,
     this.onDoubleTap,
+    this.onLongPress,
   });
 
   final Fixture fixture;
   final VoidCallback? onTap;
   final VoidCallback? onDoubleTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return InkWell(
-      onTap: onTap,
-      onDoubleTap: onDoubleTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _TeamLine(
-                    name: fixture.homeName,
-                    logo: fixture.homeLogo,
-                    alignEnd: true,
+    return Semantics(
+      // Announced so the gesture is discoverable without sight (RISK-003).
+      hint: onLongPress != null ? 'Long press for prediction' : null,
+      child: InkWell(
+        onTap: onTap,
+        onDoubleTap: onDoubleTap,
+        onLongPress: onLongPress,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _TeamLine(
+                      name: fixture.homeName,
+                      logo: fixture.homeLogo,
+                      alignEnd: true,
+                    ),
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: _CentreBlock(fixture: fixture),
-                ),
-                Expanded(
-                  child: _TeamLine(
-                    name: fixture.awayName,
-                    logo: fixture.awayLogo,
-                    alignEnd: false,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: _CentreBlock(fixture: fixture),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              _statusLabel(fixture),
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.outline,
+                  Expanded(
+                    child: _TeamLine(
+                      name: fixture.awayName,
+                      logo: fixture.awayLogo,
+                      alignEnd: false,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                _statusLabel(fixture),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.outline,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
