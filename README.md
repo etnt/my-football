@@ -74,6 +74,8 @@ richer team data.
 - Long press a future match to see a predicted result and the reasons for it.
 - Pull down on a match list or team schedule to refresh it.
 
+<a href="screenshots/match-prediction.jpeg"><img src="screenshots/match-prediction.jpeg" alt="Match predictionscreenshot" width="19%"></a>
+
 ### Match recaps
 
 - Tap a finished match to open its details. The recap sits at the top, above
