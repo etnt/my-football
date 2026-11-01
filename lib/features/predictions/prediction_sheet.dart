@@ -44,13 +44,10 @@ class _PredictionSheet extends ConsumerWidget {
     final theme = Theme.of(context);
     final kickoff = fixture.dateUtc.toLocal();
     final localizations = MaterialLocalizations.of(context);
-    final prediction = ref.watch(
-      predictionProvider((
-        fixtureId: fixture.id,
-        leagueId: leagueId,
-        season: season,
-      )),
-    );
+    // One key for both the prediction and the AI summary request, so the
+    // narration provider watches the exact same prediction member.
+    final key = (fixtureId: fixture.id, leagueId: leagueId, season: season);
+    final prediction = ref.watch(predictionProvider(key));
 
     return SafeArea(
       child: Padding(
@@ -86,7 +83,11 @@ class _PredictionSheet extends ConsumerWidget {
                     ? _UnavailableView(reason: error.reason)
                     : ApiErrorView(error: error),
                 data: (result) => SingleChildScrollView(
-                  child: _PredictionBody(fixture: fixture, result: result),
+                  child: _PredictionBody(
+                    fixture: fixture,
+                    predictionKey: key,
+                    result: result,
+                  ),
                 ),
               ),
             ),
@@ -131,9 +132,14 @@ class _UnavailableView extends StatelessWidget {
 }
 
 class _PredictionBody extends StatelessWidget {
-  const _PredictionBody({required this.fixture, required this.result});
+  const _PredictionBody({
+    required this.fixture,
+    required this.predictionKey,
+    required this.result,
+  });
 
   final Fixture fixture;
+  final PredictionKey predictionKey;
   final PredictionResult result;
 
   @override
@@ -163,6 +169,11 @@ class _PredictionBody extends StatelessWidget {
             Text('${fixture.awayName} ${percents[Outcome.away]}%'),
           ],
         ),
+        // Optional AI prose, only added once validated (Phase 5). It sits
+        // above the deterministic reasons and never replaces them (CON-001).
+        // It carries its own top margin, so the gap stays 12 when it is
+        // hidden instead of doubling to 24.
+        _AiSummary(fixture: fixture, predictionKey: predictionKey),
         const SizedBox(height: 12),
         Text(
           'Why this estimate?',
@@ -205,6 +216,47 @@ class _PredictionBody extends StatelessWidget {
       Verdict.awayWin => 'Away win$slight',
       Verdict.closeDrawLikely => 'Close – draw likely',
     };
+  }
+}
+
+/// The optional on-device AI summary (Phase 5). Watches only its own
+/// narration provider; the sheet's `prediction.when` above still watches
+/// only `predictionProvider`, so the deterministic content can never wait
+/// for the model (CON-001). While the model is pending — or when it is
+/// unavailable, slow or rejected — nothing is shown: no spinner, no
+/// download (CON-002).
+class _AiSummary extends ConsumerWidget {
+  const _AiSummary({required this.fixture, required this.predictionKey});
+
+  final Fixture fixture;
+  final PredictionKey predictionKey;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final narration = ref.watch(
+      predictionNarrationProvider(
+        NarrationRequest(fixture: fixture, key: predictionKey),
+      ),
+    );
+    final text = narration.valueOrNull;
+    if (text == null) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 12),
+        Text(
+          // Mirrors the recap's wording; REQ-010 bans "odds"/"calibrated",
+          // which this label avoids.
+          'Written by on-device AI',
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.outline,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(text, style: theme.textTheme.bodyMedium),
+      ],
+    );
   }
 }
 

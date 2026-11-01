@@ -49,12 +49,14 @@ class CacheStore {
   /// league searches to 5), so a catalogue cached on the free key must never
   /// survive a switch to Premium.
   ///
-  /// This also includes the `recap_*` keys: a switch from the free key to
-  /// Premium changes the match timeline data, so any previously cached recap
-  /// (which was generated from that older timeline) must be dropped to avoid
-  /// serving stale or incorrect information.
+  /// This also includes the `recap_*` and `prediction_ai_*` keys: a switch
+  /// from the free key to Premium changes the match timeline and standings
+  /// data, so any previously cached recap or AI summary (generated from that
+  /// older data) must be dropped to avoid serving stale or incorrect
+  /// information.
   static const _cachePrefixes = [
     'recap_',
+    'prediction_ai_',
     'standings_',
     'season_events_',
     'team_events_',

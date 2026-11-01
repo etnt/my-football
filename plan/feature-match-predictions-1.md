@@ -348,14 +348,14 @@ Revisit when Premium evidence exists.
 | TASK-017 | Run `flutter analyze` (zero new warnings) and `flutter test` (all pass). | ✅ | 2026-11-01 |
 | TASK-018 | Manual check on the free key and a Premium key: the form source shown matches expectations, and the numbers look plausible for top-vs-bottom and mid-vs-mid matches. Needs a real device plus free and Premium API keys; cannot be verified in this environment, so it stays open. | | |
 
-### Phase 5 – Optional Gemini Nano prose (not in v1 by default)
+### Phase 5 – Gemini Nano prose (in scope; TASK-024 optional)
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-020 | `prediction_prompt.dart`: a versioned prompt (`predictionPromptVersion`) that contains only the verdict, the three percentages, the team names and the reason texts. Instruction: rewrite as 2–3 plain sentences; add no facts. | | |
-| TASK-021 | `prediction_text_validator.dart`: reject the output if it contains a number not in the result, a team name not in the fixture, the words "odds"/"bet"/"guarantee", or more than 400 characters. | | |
-| TASK-022 | `PredictionNarrator`: modeled on `RecapBuilder`. An 8 s timeout around `isAvailable` plus `generate`. It never calls a download (CON-002). It caches by fixture ID, formula version and prompt version. The sheet shows the deterministic reasons at once and adds the AI summary above them only after validation passes. | | |
-| TASK-023 | Tests with a fake `AiService`: unavailable, timeout, invented number, invented team, valid output. | | |
+| TASK-020 | `prediction_prompt.dart`: a versioned prompt (`predictionPromptVersion`) that contains only the verdict, the three percentages, the team names and the reason texts. Instruction: rewrite as 2–3 plain sentences; add no facts. | ✅ | 2026-11-01 |
+| TASK-021 | `prediction_text_validator.dart`: reject the output if it contains a number not in the result, a team name not in the fixture, the words "odds"/"bet"/"guarantee", or more than 400 characters. | ✅ | 2026-11-01 |
+| TASK-022 | `PredictionNarrator`: modeled on `RecapBuilder`. An 8 s timeout around `isAvailable` plus `generate`. It never calls a download (CON-002). It keeps one cache entry per fixture (`prediction_ai_{fixtureId}`) holding the formula version, the prompt version, a fingerprint of the exact prompt content and the text; on read all four must match, otherwise the entry is a miss and is overwritten after the next validated generation. The sheet shows the deterministic reasons at once and adds the AI summary above them only after validation passes. | ✅ | 2026-11-01 |
+| TASK-023 | Tests with a fake `AiService`: unavailable, timeout, invented number, invented team, valid output. | ✅ | 2026-11-01 |
 | TASK-024 | (Optional, Premium) Back-test script: rebuild the table per round from season events, predict each next round, and report accuracy and Brier score against the fixed baseline from §4.7, with `recencyWeighting` on and off. Adjust `PredictionWeights` (including the recency weights) and bump the version. | | |
 
 ## 6. Alternatives considered
@@ -412,8 +412,9 @@ Revisit when Premium evidence exists.
    purpose. Tune with TASK-024.
 4. Draw verdict threshold `|pHome − pAway| < 0.10`? **Default: yes.** Tune it
    after TASK-024.
-5. AI prose in v1? **Default: no.** Phase 5 follows when deterministic v1 is
-   stable.
+5. AI prose in v1? **Decided: yes.** Phase 5 (TASK-020 to TASK-023) is in
+   scope. The deterministic text stays the fallback (CON-001). TASK-024 stays
+   optional.
 
 ## 9. Relevant files
 

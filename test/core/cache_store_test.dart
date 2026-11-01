@@ -13,6 +13,10 @@ void main() {
       // Recap caches written by the RecapBuilder. A switch from the free key
       // to Premium changes the timeline data, so these must be wiped as well.
       'recap_4328_2024-2025_v1': '{"ts":1,"data":"some recap"}',
+      // AI prediction summaries written by the PredictionNarrator. They are
+      // generated from standings and season events, so a key switch must wipe
+      // them too.
+      'prediction_ai_100': '{"ts":1,"data":{"text":"a summary"}}',
       // Catalogue caches written by the Settings screen. The free key caps
       // list endpoints (50 countries / 5 leagues), so these must be wiped on
       // an API-key change too.

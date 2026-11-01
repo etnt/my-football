@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:my_football/features/ai/ai_providers.dart';
 import 'package:my_football/features/predictions/prediction_providers.dart';
 import 'package:my_football/features/predictions/prediction_result.dart';
 import 'package:my_football/features/predictions/prediction_sheet.dart';
 import 'package:my_football/models/fixture.dart';
+import 'package:my_football/providers/app_providers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../support/fake_ai_service.dart';
 
 PredictionResult _result({
   Verdict verdict = Verdict.homeWin,
@@ -59,13 +64,31 @@ Fixture _fixture() {
 
 const _predictionKey = (fixtureId: 100, leagueId: 4328, season: 2026);
 
+const _validSummary =
+    'Arsenal look slightly ahead of Chelsea. The table gap and home '
+    'advantage point the same way, and recent form supports that. A draw '
+    'is possible but less likely.';
+
 /// Opens the sheet through [showPredictionSheet] with [predictionProvider]
 /// overridden, so no repository (and no network) is touched.
 Future<void> _openSheet(
   WidgetTester tester, {
   required Object Function() outcome,
   double textScale = 1.0,
+  List<Override> overrides = const [],
 }) async {
+  // The AI summary is overridden to null unless a test supplies its own
+  // overrides: the narration provider would otherwise construct a
+  // [CacheStore] from `sharedPreferencesProvider`, which these tests do not
+  // override. The deterministic content must also never wait for the model
+  // (CON-001), which this default pins.
+  final narrationOverrides = overrides.isEmpty
+      ? [
+          predictionNarrationProvider(
+            NarrationRequest(fixture: _fixture(), key: _predictionKey),
+          ).overrideWith((ref) async => null),
+        ]
+      : overrides;
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -75,6 +98,7 @@ Future<void> _openSheet(
           if (value is Exception) throw value;
           return value as PredictionResult;
         }),
+        ...narrationOverrides,
       ],
       child: MediaQuery(
         data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
@@ -182,5 +206,54 @@ void main() {
       find.text('Estimate based on table and form. Not betting advice.'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('no AI summary by default (no model available in tests)', (
+    tester,
+  ) async {
+    await _openSheet(tester, outcome: () => _result());
+
+    expect(find.text('Written by on-device AI'), findsNothing);
+    expect(find.textContaining(_validSummary), findsNothing);
+  });
+
+  testWidgets('shows the validated AI summary above the reasons', (
+    tester,
+  ) async {
+    await _openSheet(
+      tester,
+      outcome: () => _result(),
+      overrides: [
+        predictionNarrationProvider(
+          NarrationRequest(fixture: _fixture(), key: _predictionKey),
+        ).overrideWith((ref) async => _validSummary),
+      ],
+    );
+
+    expect(find.text('Written by on-device AI'), findsOneWidget);
+    expect(find.text(_validSummary), findsOneWidget);
+    // The deterministic reasons are still shown alongside.
+    expect(find.text('Why this estimate?'), findsOneWidget);
+  });
+
+  testWidgets('the summary appears through the real narrator wiring', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    await _openSheet(
+      tester,
+      outcome: () => _result(),
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        aiServiceProvider.overrideWithValue(
+          FakeAiService(responseText: _validSummary),
+        ),
+        // No narration override: the real provider/narrator/cache path runs.
+      ],
+    );
+
+    expect(find.text('Written by on-device AI'), findsOneWidget);
+    expect(find.text(_validSummary), findsOneWidget);
   });
 }

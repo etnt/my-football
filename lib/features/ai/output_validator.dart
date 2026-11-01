@@ -25,8 +25,9 @@ class ValidationResult {
 
 /// Small allowlist so natural sentence starters, months and weekdays are not
 /// rejected as "unknown names". Keep it tight: a false reject only means the
-/// template is shown instead of the AI text.
-const _nameAllowlist = {
+/// template is shown instead of the AI text. Exported so the prediction
+/// validator can reuse the same sentence-starter vocabulary.
+const recapNameAllowlist = {
   // Sentence starters / connectors.
   'the', 'a', 'an', 'and', 'but', 'after', 'despite', 'in', 'on', 'at',
   'it', 'its', 'this', 'that', 'both', 'they', 'their', 'his', 'her',
@@ -118,7 +119,7 @@ ValidationResult validateRecapText(String text, FactSheet facts) {
     final known = parts.every(
       (part) =>
           facts.allowedNameTokens.contains(part) ||
-          _nameAllowlist.contains(part),
+          recapNameAllowlist.contains(part),
     );
     if (!known) {
       debugPrint(

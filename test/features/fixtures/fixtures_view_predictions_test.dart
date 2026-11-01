@@ -102,11 +102,26 @@ Future<void> _pumpView(
           reminderNotificationServiceProvider.overrideWithValue(notifications),
         fixturesModeProvider.overrideWith((ref) => FixturesMode.upcoming),
         fixturesProvider.overrideWith(() => _FakeFixturesNotifier(fixtures)),
-        predictionProvider((
-          fixtureId: fixtures.first.id,
-          leagueId: 4328,
-          season: 2026,
-        )).overrideWith((ref) async => _result()),
+        predictionProvider(
+          (
+            fixtureId: fixtures.first.id,
+            leagueId: 4328,
+            season: 2026,
+          ),
+        ).overrideWith((ref) async => _result()),
+        // The AI summary would otherwise arm its 8 s guard timer, which is
+        // still pending at teardown (fake async). The deterministic content
+        // must also never wait for the model (CON-001).
+        predictionNarrationProvider(
+          NarrationRequest(
+            fixture: fixtures.first,
+            key: (
+              fixtureId: fixtures.first.id,
+              leagueId: 4328,
+              season: 2026,
+            ),
+          ),
+        ).overrideWith((ref) async => null),
       ],
       child: const MaterialApp(home: Scaffold(body: FixturesView())),
     ),
