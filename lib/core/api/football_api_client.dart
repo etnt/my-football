@@ -130,16 +130,30 @@ class FootballApiClient {
 
   /// All events for a league season. On the free key this is capped to the
   /// first 15 events; a Premium key returns the full schedule.
+  ///
+  /// A body without an `events` list is not an empty season: the API omits
+  /// the key for an invalid or rejected request. Callers that must tell the
+  /// two apart pass [strict], which throws a generic [ApiException] instead
+  /// of returning `const []` (the lenient default keeps the app's cached
+  /// fallback).
   Future<List<Fixture>> getSeasonEvents({
     required int leagueId,
     required String season,
+    bool strict = false,
   }) async {
     final body = await _get('/$_key/eventsseason.php', query: {
       'id': leagueId,
       's': season,
     });
     final events = body['events'];
-    if (events is! List) return const [];
+    if (events is! List) {
+      if (strict) {
+        throw const ApiException(
+          'The season endpoint returned an unexpected response.',
+        );
+      }
+      return const [];
+    }
     return events
         .whereType<Map<String, dynamic>>()
         .map(Fixture.fromJson)

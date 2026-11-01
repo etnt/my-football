@@ -123,15 +123,52 @@ void main() {
     }
   });
 
-  test('timeout around isAvailable + generate returns null', () async {
-    final ai = FakeAiService(delay: const Duration(milliseconds: 200));
+  test('timeout around a hung isAvailable returns null, no generate call',
+      () async {
+    // The caller wraps availability check plus generation in one timeout, so
+    // a hung isAvailable() must fail exactly like a hung generate(): one
+    // availability attempt, zero generate calls, null summary.
+    final ai = FakeAiService(
+      isAvailableDelay: const Duration(milliseconds: 200),
+    );
+    final cache = await _cache();
     final narrator = PredictionNarrator(
       ai: ai,
-      cache: await _cache(),
+      cache: cache,
       timeout: const Duration(milliseconds: 50),
     );
 
     expect(await narrator.summarize(fixture, result), isNull);
+    // Wait past the fake's 200 ms isAvailable delay: without the abandoned
+    // guard, generate() would run at ~200 ms, after summarize returned null.
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    expect(ai.isAvailableCalls, 1);
+    expect(ai.generateCalls, 0);
+    // A timed-out call must leave no entry behind for the next open.
+    expect(cache.readJson(predictionCacheKey(fixture.id)), isNull);
+  });
+
+  test('timeout around a hung generate returns null, no cache entry', () async {
+    // Same single timeout, but now generate() outlives it. The late answer
+    // must not reach the cache: one call, null summary, no entry for a
+    // later open.
+    final ai = FakeAiService(
+      delay: const Duration(milliseconds: 200),
+      responseText: _validSummary,
+    );
+    final cache = await _cache();
+    final narrator = PredictionNarrator(
+      ai: ai,
+      cache: cache,
+      timeout: const Duration(milliseconds: 50),
+    );
+
+    expect(await narrator.summarize(fixture, result), isNull);
+    // Wait past the fake's 200 ms generate delay, so a late cache write would
+    // already have happened.
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    expect(ai.generateCalls, 1);
+    expect(cache.readJson(predictionCacheKey(fixture.id)), isNull);
   });
 
   test('an invented number is rejected and not cached', () async {

@@ -294,10 +294,20 @@ adds the note "Early in the season – low confidence."
 Today's table cannot be used to back-test past matches. Only a "table at that
 time" can. v1 therefore ships as a heuristic estimate (REQ-010). Later, with a
 Premium key, a back-test can rebuild the table round by round from the season
-events. Report accuracy and Brier score against a fixed baseline (the
-league's overall home/draw/away rates). Run it twice, with
-`recencyWeighting` on and off. Keep the weighting only if it is at least as
-good. This is TASK-024 and is optional.
+events. Report accuracy and Brier score against an in-sample baseline: the
+league's overall home/draw/away rates measured on the same scored fixtures
+the predictions cover (see TASK-024), not a fixed or pre-season rate. Run it
+twice, with `recencyWeighting` on and off. Keep the weighting only if it is
+at least as good. This is TASK-024 and is optional.
+
+TASK-024 ships this as a CLI: `dart run tool/predictions_backtest.dart
+--league=<id> --season=<season>` with the key in the `SPORTSDB_API_KEY`
+environment variable (details in the TASK-024 note under Phase 5). Two
+decisions worth recording: the table AND the recent form are both cut at the
+predicted fixture's own kickoff (strict `isBefore`), so a Sunday match never
+sees the same round's Saturday results; and the back-test reports argmax
+accuracy rather than the sheet's verdict, because the verdict's draw band is
+a presentation rule, not a probability.
 
 ## 5. Implementation steps
 
@@ -356,7 +366,78 @@ Revisit when Premium evidence exists.
 | TASK-021 | `prediction_text_validator.dart`: reject the output if it contains a number not in the result, a team name not in the fixture, the words "odds"/"bet"/"guarantee", or more than 400 characters. | ✅ | 2026-11-01 |
 | TASK-022 | `PredictionNarrator`: modeled on `RecapBuilder`. An 8 s timeout around `isAvailable` plus `generate`. It never calls a download (CON-002). It keeps one cache entry per fixture (`prediction_ai_{fixtureId}`) holding the formula version, the prompt version, a fingerprint of the exact prompt content and the text; on read all four must match, otherwise the entry is a miss and is overwritten after the next validated generation. The sheet shows the deterministic reasons at once and adds the AI summary above them only after validation passes. | ✅ | 2026-11-01 |
 | TASK-023 | Tests with a fake `AiService`: unavailable, timeout, invented number, invented team, valid output. | ✅ | 2026-11-01 |
-| TASK-024 | (Optional, Premium) Back-test script: rebuild the table per round from season events, predict each next round, and report accuracy and Brier score against the fixed baseline from §4.7, with `recencyWeighting` on and off. Adjust `PredictionWeights` (including the recency weights) and bump the version. | | |
+| TASK-024 | (Optional, Premium) Back-test script: rebuild the table per round from season events, predict each next round, and report accuracy and Brier score against an in-sample baseline (the §4.7 home/draw/away rates of the same scored fixtures, not a pre-season rate), with `recencyWeighting` on and off. Adjust `PredictionWeights` (including the recency weights) and bump the version. | ✅ script + tests delivered (see the TASK-024 note below); the Premium run, any tuning and a version bump stay open | 2026-11-01 |
+
+TASK-024 state (2026-11-01): the tooling is delivered, the measurement is not.
+
+Delivered:
+
+- `tool/src/backtest.dart` — pure Dart, no Flutter imports (verified by a
+  test that walks the transitive import chain of both entry points). It
+  rebuilds the league table (W/D/L, points, goal difference, goals for, rank)
+  and the recent form at each fixture's own kickoff, using a strict `isBefore`
+  cutoff in both places (no look-ahead; a result at exactly the cutoff stays
+  out). Fixtures where either team has no table row yet are skipped, so round
+  1 scores nothing naturally — no `minRound` parameter (round numbers can be
+  null, non-contiguous or mixed with cup rounds).
+- `tool/predictions_backtest.dart` — thin CLI: `--league=<id>`,
+  `--season=<season>`, `--help`. The key comes from the `SPORTSDB_API_KEY`
+  environment variable only (never a key file); one GET per run, no retry; a
+  body without an `events` list (for example a rejected or invalid key) is an
+  error (exit 1, generic "unexpected response" message), never an empty
+  season; only a real empty list prints "not enough data" and exits 0;
+  aggregate metrics only in all output (CON-003): no team names, fixture ids
+  or per-match lines, including on error (`ApiException.message` or the
+  error's runtime type). Exit 64 on usage errors or a missing key, before any
+  request. A run with fewer than 100 events prints a free-key warning.
+- Metrics: argmax accuracy (ties break home → draw → away) and the mean
+  multiclass Brier score. The baseline is computed in sample from the same
+  scored fixture set the predictions cover (its outcome rates, the argmax
+  accuracy of the most frequent outcome, and the Brier of that rate triple)
+  and is labelled in-sample in the output. The small-sample guard is
+  expressed as: `n = 0` → "not enough data", no metrics;
+  below 30 scored predictions a small-sample warning says the numbers cannot
+  support a tuning decision (`intRound` can be null or non-contiguous, so
+  rounds are not counted).
+- Comparison: the season is run twice with identical weights, differing only
+  in `recencyWeighting`; the CLI then states whether the weighting is at
+  least as good on both metrics. The shipped `PredictionWeights` values and
+  `version` are untouched — tuning and a version bump wait for a real run.
+- Tests: `test/tool/predictions_backtest_test.dart` — table rebuild and
+  deterministic tie-breaks, the strict cutoff (same-instant and later
+  results excluded), the round-1 skip, hand-computed Brier and baseline
+  values, the weighting toggle and determinism on a crafted season, the
+  empty season (no NaN), `parseArgs` (including a blank env key), and a
+  source check that the CLI never reads a key file and that the whole
+  transitive import chain from both entry points is Flutter-free.
+
+Still open (needs a Premium key):
+
+- Run the back-test on at least one full season. A free-key run is not a
+  result: ~15 events score only a handful of predictions, below the
+  small-sample threshold.
+- Tune `PredictionWeights` (including the recency weights) and bump
+  `version` only if the evidence says the weighted form is at least as good.
+
+Found and fixed while building this: `Fixture.resultFor(teamId)` returned a
+W/D/L for any team id, treating a non-participant as the away side. That is
+harmless for `TeamDetailScreen` (it passes one team's own fixtures) but wrong
+for whole-season scans — it silently gave every team phantom results in
+derived form, including in production via `prediction_repository.dart`.
+`resultFor` now returns null when `teamId` is neither side, with a pinning
+test in `test/models/fixture_test.dart`. Full suite re-run green.
+
+That fix changes shipped v1 output, so it is recorded here: form counts and
+percentages can change, the reason texts can change, and a cached AI summary
+becomes a miss because the prompt fingerprint changed. `PredictionWeights`
+and its `version` stay unchanged on purpose: this fixes an input, not the
+formula, so the version has nothing to describe.
+
+Also tightened while here: the prediction validator's rejection logs now
+carry the rule name only (never the matched number, name or word — match
+data must not reach logs, CON-003), pinned by a log-capture test; and the
+narrator's hung-`isAvailable` timeout path is now asserted to make one
+availability attempt and zero generate calls.
 
 ## 6. Alternatives considered
 

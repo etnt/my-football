@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_football/features/ai/output_validator.dart';
 import 'package:my_football/features/predictions/prediction_result.dart';
@@ -160,5 +161,43 @@ void main() {
       validatePredictionText('Arsenal ' * 80, fixture, result).reason,
       RejectReason.tooLong,
     );
+  });
+
+  test('rejection logs carry the rule name only, never match data', () {
+    // CON-003: the matched number, team name or forbidden word is match
+    // data (or reveals what the validator knows); logs keep the rule name.
+    final logs = <String>[];
+    final previous = debugPrint;
+    debugPrint = (String? message, {int? wrapWidth}) {
+      if (message != null) logs.add(message);
+    };
+    addTearDown(() => debugPrint = previous);
+
+    validatePredictionText(
+      'Arsenal have won 7 of their last matches and look clear favourites.',
+      fixture,
+      result,
+    );
+    validatePredictionText(
+      'Liverpool look slightly ahead of Chelsea this weekend.',
+      fixture,
+      result,
+    );
+    validatePredictionText(
+      'Arsenal look good value in the odds for this match.',
+      fixture,
+      result,
+    );
+    validatePredictionText('Too short.', fixture, result);
+
+    expect(logs, isNotEmpty);
+    for (final log in logs) {
+      expect(log, contains('rejected'));
+      expect(log.contains('Liverpool'), isFalse, reason: log);
+      expect(log.contains('Chelsea'), isFalse, reason: log);
+      expect(log.contains('Arsenal'), isFalse, reason: log);
+      expect(log.contains('7'), isFalse, reason: log);
+      expect(log.contains('odds'), isFalse, reason: log);
+    }
   });
 }

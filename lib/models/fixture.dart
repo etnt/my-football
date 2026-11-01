@@ -53,8 +53,13 @@ class Fixture {
   bool isHome(int teamId) => homeId == teamId;
 
   /// 'W', 'D' or 'L' for [teamId] when finished with a score; otherwise null.
+  /// Null too when [teamId] did not take part: without the guard, a team id
+  /// that is neither side would be treated as the away team and pick up a
+  /// phantom result from another pair's match (this matters when callers
+  /// scan whole-season event lists, e.g. derived form in predictions).
   String? resultFor(int teamId) {
     if (!isFinished || !hasScore) return null;
+    if (teamId != homeId && teamId != awayId) return null;
     final home = isHome(teamId);
     final scored = home ? homeGoals! : awayGoals!;
     final conceded = home ? awayGoals! : homeGoals!;

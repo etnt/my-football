@@ -59,6 +59,9 @@ ValidationResult validatePredictionText(
 ) {
   final trimmed = text.trim();
 
+  // Logs carry the rule name only, never the matched value: a number or a
+  // capitalised word can be match data, and logs must not leak it (CON-003).
+  // The log-capture test in prediction_text_validator_test.dart pins this.
   if (trimmed.length < 20) {
     debugPrint(
       'validatePredictionText: rejected (${RejectReason.tooShort.name})',
@@ -79,8 +82,7 @@ ValidationResult validatePredictionText(
   for (final match in numberPattern.allMatches(trimmed)) {
     if (!allowedNumbers.contains(match.group(0))) {
       debugPrint(
-        'validatePredictionText: rejected '
-        '(${RejectReason.unknownNumber.name}: "${match.group(0)}")',
+        'validatePredictionText: rejected (${RejectReason.unknownNumber.name})',
       );
       return const ValidationResult.failure(RejectReason.unknownNumber);
     }
@@ -107,8 +109,7 @@ ValidationResult validatePredictionText(
     );
     if (!known) {
       debugPrint(
-        'validatePredictionText: rejected '
-        '(${RejectReason.unknownName.name}: "${match.group(0)}")',
+        'validatePredictionText: rejected (${RejectReason.unknownName.name})',
       );
       return const ValidationResult.failure(RejectReason.unknownName);
     }
@@ -126,8 +127,7 @@ ValidationResult validatePredictionText(
   final forbidden = forbiddenPattern.firstMatch(trimmed);
   if (forbidden != null) {
     debugPrint(
-      'validatePredictionText: rejected '
-      '(${RejectReason.forbiddenClaim.name}: "${forbidden.group(0)}")',
+      'validatePredictionText: rejected (${RejectReason.forbiddenClaim.name})',
     );
     return const ValidationResult.failure(RejectReason.forbiddenClaim);
   }

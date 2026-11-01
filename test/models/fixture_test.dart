@@ -40,6 +40,14 @@ void main() {
       expect(f.resultFor(20), 'L');
     });
 
+    test('returns null for a team that did not take part', () {
+      // A team id that is neither side must not pick up a phantom result
+      // (recentForm scans whole-season event lists).
+      final f = _finished(homeId: 10, awayId: 20, homeGoals: 2, awayGoals: 0);
+
+      expect(f.resultFor(30), isNull);
+    });
+
     test('returns null for unfinished matches', () {
       final upcoming = Fixture.fromJson({
         'idEvent': '2',

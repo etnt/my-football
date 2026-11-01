@@ -244,6 +244,25 @@ void main() {
 
       expect(events, isEmpty);
     });
+
+    test('strict mode throws on a missing events key', () async {
+      final client = _clientWith(_FakeAdapter(body: '{}'));
+
+      expect(
+        () => client.getSeasonEvents(
+          leagueId: 4328,
+          season: '2023-2024',
+          strict: true,
+        ),
+        throwsA(
+          isA<ApiException>().having(
+            (e) => e.message,
+            'message',
+            contains('unexpected response'),
+          ),
+        ),
+      );
+    });
   });
 
   group('FootballApiClient error handling', () {
