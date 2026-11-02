@@ -243,7 +243,7 @@ double brierScore({
 /// the most frequent outcome (same home → draw → away tie order), and the
 /// Brier score of that rate triple.
 ({double home, double draw, double away, double accuracy, double brier})
-    computeBaseline(List<Outcome> outcomes) {
+computeBaseline(List<Outcome> outcomes) {
   if (outcomes.isEmpty) {
     return (home: 0.0, draw: 0.0, away: 0.0, accuracy: 0.0, brier: 0.0);
   }
@@ -264,7 +264,13 @@ double brierScore({
   for (final o in outcomes) {
     brierSum += brierScore(pHome: home, pDraw: draw, pAway: away, actual: o);
   }
-  return (home: home, draw: draw, away: away, accuracy: accuracy, brier: brierSum / n);
+  return (
+    home: home,
+    draw: draw,
+    away: away,
+    accuracy: accuracy,
+    brier: brierSum / n,
+  );
 }
 
 /// Aggregate result of one back-test pass. Counts and aggregate metrics only
@@ -282,6 +288,7 @@ class BacktestReport {
     required this.baselineAwayRate,
     required this.baselineAccuracy,
     required this.baselineBrier,
+    required this.formAffectsEstimate,
     required this.recencyWeighting,
     required this.formulaVersion,
   });
@@ -305,6 +312,10 @@ class BacktestReport {
   final double baselineAwayRate;
   final double baselineAccuracy;
   final double baselineBrier;
+
+  /// Whether recent form changed the estimate (form weight not 0). When
+  /// false, [recencyWeighting] has no effect and is not reported.
+  final bool formAffectsEstimate;
   final bool recencyWeighting;
   final String formulaVersion;
 }
@@ -314,14 +325,13 @@ class BacktestReport {
 /// (strict `isBefore` cutoff in both places), then scored against its actual
 /// outcome. Fixtures are processed in kickoff order (ties by fixture id) so
 /// the report is deterministic regardless of the API's event order.
+/// [weights] defaults to the shipped formula.
 BacktestReport runBacktest({
   required List<Fixture> events,
-  required bool recencyWeighting,
+  PredictionWeights weights = const PredictionWeights(),
 }) {
   final ordered = [...events]..sort(_byKickoff);
-  final calculator = PredictionCalculator(
-    weights: PredictionWeights(recencyWeighting: recencyWeighting),
-  );
+  final calculator = PredictionCalculator(weights: weights);
   var n = 0;
   var skipped = 0;
   var correct = 0;
@@ -364,19 +374,19 @@ BacktestReport runBacktest({
     baselineAwayRate: baseline.away,
     baselineAccuracy: baseline.accuracy,
     baselineBrier: baseline.brier,
-    recencyWeighting: recencyWeighting,
-    formulaVersion: const PredictionWeights().version,
+    formAffectsEstimate: weights.formAffectsEstimate,
+    recencyWeighting: weights.recencyWeighting,
+    formulaVersion: weights.version,
   );
 }
 
-/// Runs the §4.7 comparison: the same season with `recencyWeighting` on and
-/// off, everything else identical (`PredictionWeights`' named defaults keep
-/// every other constant at its shipped value, and the version untouched).
-({BacktestReport weighted, BacktestReport plain}) compareBacktests(
+/// Runs the comparison on the same season: the shipped formula against the
+/// original v1 constants (plan §4.8), so a regression shows up at once.
+({BacktestReport current, BacktestReport v1}) compareBacktests(
   List<Fixture> events,
 ) => (
-  weighted: runBacktest(events: events, recencyWeighting: true),
-  plain: runBacktest(events: events, recencyWeighting: false),
+  current: runBacktest(events: events),
+  v1: runBacktest(events: events, weights: const PredictionWeights.v1()),
 );
 
 int _byKickoff(Fixture a, Fixture b) {
@@ -389,8 +399,12 @@ int _byKickoff(Fixture a, Fixture b) {
 /// counts and aggregate metrics only (CON-003).
 String formatReport(BacktestReport r) {
   final b = StringBuffer()
-    ..write('formula ${r.formulaVersion}, '
-        'recencyWeighting = ${r.recencyWeighting}\n');
+    ..write(
+      r.formAffectsEstimate
+          ? 'formula ${r.formulaVersion}, '
+                'recencyWeighting = ${r.recencyWeighting}\n'
+          : 'formula ${r.formulaVersion}, form is context only\n',
+    );
   if (r.n == 0) {
     b.write(
       '  not enough data: no scored predictions (n = 0, ${r.skipped} '
@@ -407,9 +421,7 @@ String formatReport(BacktestReport r) {
       '  argmax accuracy: ${r.accuracy.toStringAsFixed(3)} '
       '(${r.correct} of ${r.n})\n',
     )
-    ..write(
-      '  Brier score: ${r.brier.toStringAsFixed(4)} (lower is better)\n',
-    )
+    ..write('  Brier score: ${r.brier.toStringAsFixed(4)} (lower is better)\n')
     ..write(
       '  in-sample baseline over the same ${r.n} fixtures: '
       '${(r.baselineHomeRate * 100).round()}% / '

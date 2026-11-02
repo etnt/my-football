@@ -2,7 +2,27 @@
 enum Outcome { home, draw, away }
 
 /// The verdict shown in the sheet.
-enum Verdict { homeWin, awayWin, closeDrawLikely }
+enum Verdict { homeWin, awayWin, tooClose }
+
+/// The verdict as a 1/X/2 tip: `1` home win, `X` draw, `2` away win. A
+/// slight favourite gets a double tip that adds the draw, and a match that
+/// is too close to call gets `1X2`. A lone `X` is never given: the draw is
+/// never the most likely single outcome in this model (plan §4.9).
+enum MatchTip {
+  home('1', 'Home win'),
+  homeOrDraw('1X', 'Home win or draw'),
+  open('1X2', 'Any result'),
+  drawOrAway('X2', 'Draw or away win'),
+  away('2', 'Away win');
+
+  const MatchTip(this.code, this.description);
+
+  /// The short code, e.g. `1X`.
+  final String code;
+
+  /// Plain words for the code, for tooltips and screen readers.
+  final String description;
+}
 
 /// Which side a reason factor favours.
 enum PredictionFavour { home, away, none }
@@ -55,8 +75,16 @@ class PredictionResult {
   final Verdict verdict;
 
   /// True when the winning side is only a slight favourite (gap < 0.20).
-  /// Always false for `Verdict.closeDrawLikely`.
+  /// Always false for `Verdict.tooClose`.
   final bool isSlight;
+
+  /// The verdict as a 1/X/2 tip. Derived from [verdict] and [isSlight] only,
+  /// so the tip and the verdict text can never disagree.
+  MatchTip get tip => switch (verdict) {
+    Verdict.homeWin => isSlight ? MatchTip.homeOrDraw : MatchTip.home,
+    Verdict.awayWin => isSlight ? MatchTip.drawOrAway : MatchTip.away,
+    Verdict.tooClose => MatchTip.open,
+  };
 
   /// Reasons sorted by their contribution to the strength difference,
   /// largest first.

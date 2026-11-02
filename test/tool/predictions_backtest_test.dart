@@ -6,6 +6,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:my_football/features/predictions/prediction_calculator.dart';
 import 'package:my_football/features/predictions/prediction_input.dart';
 import 'package:my_football/features/predictions/prediction_result.dart';
 import 'package:my_football/models/fixture.dart';
@@ -262,7 +263,7 @@ void main() {
   group('runBacktest', () {
     test('round 1 is skipped, round 2 is scored, baseline uses the scored set',
         () {
-      final report = runBacktest(events: simpleSeason(), recencyWeighting: true);
+      final report = runBacktest(events: simpleSeason());
 
       expect(report.n, 2);
       expect(report.skipped, 2);
@@ -272,7 +273,10 @@ void main() {
       expect(report.correct, 2);
       expect(report.accuracy, 1);
       expect(report.brier, greaterThan(0));
-      expect(report.brier, lessThan(0.1));
+      // v1.1 is deliberately less confident than v1 (plan §4.8), so even two
+      // right calls keep a clearly non-zero Brier; well under the 0.667 of a
+      // uniform 1/3 guess.
+      expect(report.brier, lessThan(0.5));
       // The scored set holds two away wins, so the in-sample baseline
       // ("always away") is perfect here — exactly why it is labelled
       // in-sample and computed on the same scored set, not all events.
@@ -281,11 +285,11 @@ void main() {
       expect(report.baselineAwayRate, 1);
       expect(report.baselineAccuracy, 1);
       expect(report.baselineBrier, 0);
-      expect(report.formulaVersion, 'v1');
+      expect(report.formulaVersion, 'v1.1');
     });
 
     test('an empty season gives n = 0 and no NaN', () {
-      final report = runBacktest(events: const [], recencyWeighting: true);
+      final report = runBacktest(events: const []);
       expect(report.n, 0);
       expect(report.skipped, 0);
       expect(report.accuracy.isNaN, isFalse);
@@ -295,8 +299,16 @@ void main() {
 
     test('recency weighting changes the Brier score on a crafted season', () {
       final events = recencySeason();
-      final weighted = runBacktest(events: events, recencyWeighting: true);
-      final plain = runBacktest(events: events, recencyWeighting: false);
+      // v1 constants: the only formula where form (and so the weighting)
+      // changes the estimate.
+      final weighted = runBacktest(
+        events: events,
+        weights: const PredictionWeights.v1(),
+      );
+      final plain = runBacktest(
+        events: events,
+        weights: const PredictionWeights.v1(recencyWeighting: false),
+      );
 
       // Day-5 fixtures are skipped (no table yet); days 10-30 are scored.
       expect(weighted.n, 9);
@@ -310,10 +322,28 @@ void main() {
       expect(plain.formulaVersion, 'v1');
     });
 
+    test('form is context only in v1.1: the weighting changes nothing', () {
+      final events = recencySeason();
+      final on = runBacktest(events: events);
+      final off = runBacktest(
+        events: events,
+        weights: const PredictionWeights(recencyWeighting: false),
+      );
+      expect(on.formAffectsEstimate, isFalse);
+      expect(on.brier, off.brier);
+    });
+
+    test('compareBacktests runs the shipped formula against v1', () {
+      final (:current, :v1) = compareBacktests(recencySeason());
+      expect(current.formulaVersion, 'v1.1');
+      expect(v1.formulaVersion, 'v1');
+      expect(current.n, v1.n);
+    });
+
     test('the run is deterministic', () {
       final events = recencySeason();
-      final a = runBacktest(events: events, recencyWeighting: true);
-      final b = runBacktest(events: events, recencyWeighting: true);
+      final a = runBacktest(events: events);
+      final b = runBacktest(events: events);
       expect(a.n, b.n);
       expect(a.skipped, b.skipped);
       expect(a.correct, b.correct);
@@ -324,7 +354,7 @@ void main() {
 
   group('formatReport', () {
     test('n = 0 prints "not enough data" and no metrics', () {
-      final report = runBacktest(events: const [], recencyWeighting: false);
+      final report = runBacktest(events: const []);
       final text = formatReport(report);
       expect(text, contains('not enough data'));
       expect(text.contains('Brier'), isFalse);
@@ -335,10 +365,10 @@ void main() {
     test('a full report carries counts, metrics, baseline and the warning',
         () {
       final text = formatReport(
-        runBacktest(events: simpleSeason(), recencyWeighting: true),
+        runBacktest(events: simpleSeason()),
       );
-      expect(text, contains('recencyWeighting = true'));
-      expect(text, contains('formula v1'));
+      expect(text, contains('formula v1.1, form is context only'));
+      expect(text.contains('recencyWeighting'), isFalse);
       expect(text, contains('n = 2'));
       expect(text, contains('argmax accuracy'));
       expect(text, contains('Brier score'));
@@ -347,6 +377,16 @@ void main() {
       // CON-003: no team names in aggregate output.
       expect(text.contains('T1'), isFalse);
       expect(text.contains('T2'), isFalse);
+    });
+
+    test('a formula where form counts reports the recency setting', () {
+      final text = formatReport(
+        runBacktest(
+          events: simpleSeason(),
+          weights: const PredictionWeights.v1(),
+        ),
+      );
+      expect(text, contains('formula v1, recencyWeighting = true'));
     });
   });
 

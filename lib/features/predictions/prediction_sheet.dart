@@ -150,10 +150,21 @@ class _PredictionBody extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          _verdictText(result),
-          style: theme.textTheme.titleMedium,
-          textAlign: TextAlign.center,
+        // A Wrap, not a Row, so the badge and the verdict stack instead of
+        // overflowing at large text scales (REQ-011).
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            _TipBadge(tip: result.tip),
+            Text(
+              _verdictText(result),
+              style: theme.textTheme.titleMedium,
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         _ChanceBar(percents: percents),
@@ -199,7 +210,7 @@ class _PredictionBody extends StatelessWidget {
           ),
         const SizedBox(height: 12),
         Text(
-          'Estimate based on table and form. Not betting advice.',
+          'Estimate based on the league table. Not betting advice.',
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.outline,
           ),
@@ -214,7 +225,7 @@ class _PredictionBody extends StatelessWidget {
     return switch (result.verdict) {
       Verdict.homeWin => 'Home win$slight',
       Verdict.awayWin => 'Away win$slight',
-      Verdict.closeDrawLikely => 'Close – draw likely',
+      Verdict.tooClose => 'Too close to call',
     };
   }
 }
@@ -256,6 +267,44 @@ class _AiSummary extends ConsumerWidget {
         const SizedBox(height: 4),
         Text(text, style: theme.textTheme.bodyMedium),
       ],
+    );
+  }
+}
+
+/// The 1/X/2 tip as a small badge, e.g. `1X`. The code alone is cryptic,
+/// so a tooltip and the screen-reader label spell it out.
+class _TipBadge extends StatelessWidget {
+  const _TipBadge({required this.tip});
+
+  final MatchTip tip;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Tooltip(
+      message: tip.description,
+      excludeFromSemantics: true,
+      child: Semantics(
+        label: 'Tip ${tip.code}: ${tip.description}',
+        excludeSemantics: true,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: scheme.secondaryContainer,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            child: Text(
+              tip.code,
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: scheme.onSecondaryContainer,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

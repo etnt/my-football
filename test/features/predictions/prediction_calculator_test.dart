@@ -71,6 +71,18 @@ PredictionResult _run(
   );
 }
 
+/// Runs the original v1 constants, where recent form changes the estimate.
+/// The form-weighting tests below need them; v1.1 makes form context only.
+PredictionResult _runV1(
+  TeamFactors home,
+  TeamFactors away, {
+  double leagueAvgPpg = 1.0,
+}) {
+  return const PredictionCalculator(
+    weights: PredictionWeights.v1(),
+  ).calculate(_input(home: home, away: away, leagueAvgPpg: leagueAvgPpg));
+}
+
 void main() {
   group('probabilities', () {
     test('sum to 1 for several inputs', () {
@@ -123,26 +135,50 @@ void main() {
       }
     });
 
-    test('match the plan §4.3 reference values (±1 point)', () {
-      // d = ppgHome − ppgAway + 0.20 with missing form and no goal diff.
+    test('match the plan §4.8 v1.1 reference values (±1 point)', () {
+      // d = ppgHome − ppgAway + 0.40 with no goal diff (a = 0.80, c = 0.57).
       // ppg steps of 0.1 come from played = 7 and leagueAvgPpg = 1.0.
       // d = 0.0: away side better by exactly H.
-      var r = _run(_team(ppg: 1.4), _team(id: 2, name: 'Away', ppg: 1.6));
+      var r = _run(_team(ppg: 1.3), _team(id: 2, name: 'Away', ppg: 1.7));
+      expect(r.displayPercents[Outcome.home], closeTo(36, 1));
+      expect(r.displayPercents[Outcome.draw], closeTo(28, 1));
+      expect(r.displayPercents[Outcome.away], closeTo(36, 1));
+      // d = 0.4: equal teams, only home advantage.
+      r = _run(_team(ppg: 1.5), _team(id: 2, name: 'Away', ppg: 1.5));
+      expect(r.displayPercents[Outcome.home], closeTo(44, 1));
+      expect(r.displayPercents[Outcome.draw], closeTo(27, 1));
+      expect(r.displayPercents[Outcome.away], closeTo(29, 1));
+      // d = 0.7: clear home favourite.
+      r = _run(_team(ppg: 1.8), _team(id: 2, name: 'Away', ppg: 1.5));
+      expect(r.displayPercents[Outcome.home], closeTo(50, 1));
+      expect(r.displayPercents[Outcome.draw], closeTo(26, 1));
+      expect(r.displayPercents[Outcome.away], closeTo(24, 1));
+      // d = 1.2: top vs bottom.
+      r = _run(_team(ppg: 2.3), _team(id: 2, name: 'Away', ppg: 1.5));
+      expect(r.displayPercents[Outcome.home], closeTo(60, 1));
+      expect(r.displayPercents[Outcome.draw], closeTo(22, 1));
+      expect(r.displayPercents[Outcome.away], closeTo(18, 1));
+    });
+
+    test('v1 constants still match the plan §4.3 reference values', () {
+      // d = ppgHome − ppgAway + 0.20 with missing form and no goal diff.
+      // d = 0.0: away side better by exactly H.
+      var r = _runV1(_team(ppg: 1.4), _team(id: 2, name: 'Away', ppg: 1.6));
       expect(r.displayPercents[Outcome.home], closeTo(37, 1));
       expect(r.displayPercents[Outcome.draw], closeTo(27, 1));
       expect(r.displayPercents[Outcome.away], closeTo(37, 1));
       // d = 0.2: equal teams, only home advantage.
-      r = _run(_team(ppg: 1.5), _team(id: 2, name: 'Away', ppg: 1.5));
+      r = _runV1(_team(ppg: 1.5), _team(id: 2, name: 'Away', ppg: 1.5));
       expect(r.displayPercents[Outcome.home], closeTo(44, 1));
       expect(r.displayPercents[Outcome.draw], closeTo(26, 1));
       expect(r.displayPercents[Outcome.away], closeTo(30, 1));
       // d = 0.5: clear home favourite.
-      r = _run(_team(ppg: 1.8), _team(id: 2, name: 'Away', ppg: 1.5));
+      r = _runV1(_team(ppg: 1.8), _team(id: 2, name: 'Away', ppg: 1.5));
       expect(r.displayPercents[Outcome.home], closeTo(56, 1));
       expect(r.displayPercents[Outcome.draw], closeTo(23, 1));
       expect(r.displayPercents[Outcome.away], closeTo(21, 1));
       // d = 1.0: top vs bottom.
-      r = _run(_team(ppg: 2.3), _team(id: 2, name: 'Away', ppg: 1.5));
+      r = _runV1(_team(ppg: 2.3), _team(id: 2, name: 'Away', ppg: 1.5));
       expect(r.displayPercents[Outcome.home], closeTo(74, 1));
       expect(r.displayPercents[Outcome.draw], closeTo(16, 1));
       expect(r.displayPercents[Outcome.away], closeTo(10, 1));
@@ -156,9 +192,9 @@ void main() {
       expect(r.isSlight, isTrue);
     });
 
-    test('d ≈ 0: close, draw likely, never "slight"', () {
+    test('d ≈ 0: too close to call, never "slight"', () {
       final r = _run(_team(ppg: 1.4), _team(id: 2, name: 'Away', ppg: 1.6));
-      expect(r.verdict, Verdict.closeDrawLikely);
+      expect(r.verdict, Verdict.tooClose);
       expect(r.isSlight, isFalse);
     });
 
@@ -195,6 +231,58 @@ void main() {
     });
   });
 
+  group('1/X/2 tip', () {
+    test('follows the verdict bands', () {
+      // Clear home favourite (gap ≥ 0.20) → 1.
+      var r = _run(_team(ppg: 2.3), _team(id: 2, name: 'Away', ppg: 1.5));
+      expect(r.verdict, Verdict.homeWin);
+      expect(r.tip, MatchTip.home);
+      // Equal teams: home advantage only, slight favourite → 1X.
+      r = _run(_team(ppg: 1.5), _team(id: 2, name: 'Away', ppg: 1.5));
+      expect(r.isSlight, isTrue);
+      expect(r.tip, MatchTip.homeOrDraw);
+      // Gap < 0.10 → too close to call → 1X2.
+      r = _run(_team(ppg: 1.4), _team(id: 2, name: 'Away', ppg: 1.6));
+      expect(r.verdict, Verdict.tooClose);
+      expect(r.tip, MatchTip.open);
+      // Slight away favourite (d = −0.4, the mirror of equal teams) → X2.
+      r = _run(_team(ppg: 1.1), _team(id: 2, name: 'Away', ppg: 1.9));
+      expect(r.verdict, Verdict.awayWin);
+      expect(r.isSlight, isTrue);
+      expect(r.tip, MatchTip.drawOrAway);
+      // Clear away favourite → 2.
+      r = _run(_team(ppg: 1.0), _team(id: 2, name: 'Away', ppg: 2.3));
+      expect(r.verdict, Verdict.awayWin);
+      expect(r.isSlight, isFalse);
+      expect(r.tip, MatchTip.away);
+    });
+
+    test('codes and descriptions', () {
+      expect({for (final t in MatchTip.values) t.code}, {
+        '1',
+        '1X',
+        '1X2',
+        'X2',
+        '2',
+      });
+      expect(MatchTip.homeOrDraw.description, 'Home win or draw');
+      expect(MatchTip.open.description, 'Any result');
+    });
+
+    test('a lone X is never a tip', () {
+      // The draw is never the single most likely outcome, so no input can
+      // produce an X-only tip: sweep the strength difference.
+      for (var home = 0.5; home <= 3.0; home += 0.1) {
+        final r = _run(
+          _team(ppg: home),
+          _team(id: 2, name: 'Away', ppg: 1.5),
+        );
+        expect(r.tip.code, isNot('X'));
+        expect(r.pDraw, lessThan(r.pHome > r.pAway ? r.pHome : r.pAway));
+      }
+    });
+  });
+
   group('small samples and missing data', () {
     test('played = 0 does not divide by zero (ppg falls back to league)', () {
       final r = _run(
@@ -209,7 +297,7 @@ void main() {
     test('leagueAvgPpg ≤ 0 falls back to the 1.37 constant', () {
       // One team has played nothing (ppg = league average, whatever it is);
       // the other sits on 1.5 from 7 games. With the fallback 1.37 the two
-      // strengths nearly cancel (d ≈ −0.04 → close, draw likely); with the
+      // strengths nearly cancel (d ≈ −0.04 → too close to call); with the
       // raw 1.0 the away side would clearly win instead.
       const calculator = PredictionCalculator();
       final r = calculator.calculate(
@@ -220,18 +308,18 @@ void main() {
           leagueAvgPpg: 0,
         ),
       );
-      expect(r.verdict, Verdict.closeDrawLikely);
+      expect(r.verdict, Verdict.tooClose);
     });
 
     test('missing form never lowers strength below table-only strength', () {
       // ppg = 1.0 exactly; form [D, D, D] has formPpg = 1.0, so its shrunk
       // formAdj equals ppg and the form term is zero — identical to missing
       // form. Missing data must never be treated as a loss (REQ-006).
-      final withoutForm = _run(
+      final withoutForm = _runV1(
         _team(ppg: 1.0),
         _team(id: 2, name: 'Away', ppg: 1.0),
       );
-      final neutralForm = _run(
+      final neutralForm = _runV1(
         _team(
           ppg: 1.0,
           form: const ['D', 'D', 'D'],
@@ -290,7 +378,7 @@ void main() {
     test(
       'the rising team gets a higher home-win chance than the falling one',
       () {
-        PredictionResult run(List<String> form) => _run(
+        PredictionResult run(List<String> form) => _runV1(
           _team(
             ppg: 1.5,
             form: form,
@@ -314,7 +402,7 @@ void main() {
       () {
         // Same weighted formPpg (8.1 / 4 = 2.025), different streaks:
         // WWWLL has a 3-win streak, WDWLW has no leading run ≥ 2.
-        PredictionResult run(List<String> form) => _run(
+        PredictionResult run(List<String> form) => _runV1(
           _team(
             ppg: 1.5,
             form: form,
@@ -404,7 +492,7 @@ void main() {
     });
 
     test('form reason compares points and mentions weighting when used', () {
-      final r = _run(
+      final r = _runV1(
         _team(
           name: 'Arsenal',
           ppg: 1.5,
@@ -436,7 +524,7 @@ void main() {
       // slump (WWWDL, 10 pts) while away is rising (WWLLL, 6 pts). The raw
       // points favour home, yet the form term favours away — the old "have
       // the better recent form" wording contradicted its own numbers.
-      final r = _run(
+      final r = _runV1(
         _team(
           ppg: 3.0,
           form: const ['W', 'W', 'W', 'D', 'L'],
@@ -470,7 +558,7 @@ void main() {
       // 0.35 · (1.0 − 2.0) ≈ −0.35. Both terms are negative; away is only
       // less negative, so the text must not say their form "lifts" the
       // estimate.
-      final r = _run(
+      final r = _runV1(
         _team(
           name: 'Arsenal',
           ppg: 3.0,
@@ -494,7 +582,7 @@ void main() {
     });
 
     test('unordered source B adds the order note', () {
-      final r = _run(
+      final r = _runV1(
         _team(
           ppg: 1.5,
           form: const ['W', 'W', 'L'],
@@ -521,7 +609,7 @@ void main() {
         isTrue,
       );
       // Ordered season-event form adds no order note.
-      final ordered = _run(
+      final ordered = _runV1(
         _team(
           ppg: 1.5,
           form: const ['W', 'W', 'L'],
@@ -543,7 +631,7 @@ void main() {
     test('no weighting clause when only one side\'s form order is known', () {
       // Mixed sources: the sentence must not imply both lists are weighted
       // when the away `strForm` order is unknown (navigator open question 1).
-      final r = _run(
+      final r = _runV1(
         _team(
           ppg: 1.5,
           form: const ['W', 'W', 'W', 'L', 'L'],
@@ -566,7 +654,7 @@ void main() {
     test('equal form gets a neutral wording, not "better"', () {
       // Identical ppg and form: the form term cancels exactly, so the text
       // must not name a side (navigator open question 2).
-      final r = _run(
+      final r = _runV1(
         _team(
           ppg: 1.5,
           form: const ['W', 'W', 'L'],
@@ -649,7 +737,105 @@ void main() {
 
     test('carries the formula version', () {
       final r = _run(_team(ppg: 1.5), _team(id: 2, name: 'Away', ppg: 1.5));
-      expect(r.formulaVersion, 'v1');
+      expect(r.formulaVersion, 'v1.1');
+      final v1 = _runV1(_team(ppg: 1.5), _team(id: 2, name: 'Away', ppg: 1.5));
+      expect(v1.formulaVersion, 'v1');
+    });
+  });
+
+  group('v1.1: form is context only', () {
+    TeamFactors withForm(
+      int id,
+      String name,
+      List<String> form, {
+      bool ordered = true,
+    }) => _team(
+      id: id,
+      name: name,
+      ppg: 1.5,
+      form: form,
+      formOrdered: ordered,
+      formSource: ordered ? FormSource.seasonEvents : FormSource.standingsForm,
+    );
+
+    test('form never changes the probabilities', () {
+      final none = _run(_team(ppg: 1.5), _team(id: 2, name: 'Away', ppg: 1.5));
+      final hot = _run(
+        withForm(1, 'Home', const ['W', 'W', 'W', 'W', 'W']),
+        withForm(2, 'Away', const ['L', 'L', 'L', 'L', 'L']),
+      );
+      expect(hot.pHome, none.pHome);
+      expect(hot.pDraw, none.pDraw);
+      expect(hot.pAway, none.pAway);
+    });
+
+    test('the form line says it is context only and quotes raw points', () {
+      final r = _run(
+        withForm(1, 'Arsenal', const ['W', 'W', 'W', 'L', 'L']),
+        withForm(2, 'Fulham', const ['L', 'L', 'D', 'D', 'D']),
+      );
+      final form = r.reasons.firstWhere((r) => r.factor == 'form');
+      expect(
+        form.text,
+        'Recent form, shown for context and not used in the estimate: '
+        'Arsenal took 9 of 15 points, Fulham took 3 of 15 points.',
+      );
+      expect(form.favours, PredictionFavour.home);
+      expect(form.numbers, {'homeFormPoints': 9, 'awayFormPoints': 3});
+      // Context lines carry no weight, so the table still comes first.
+      expect(r.reasons.last.factor, isNot('table'));
+    });
+
+    test('favours compares points per match, not totals', () {
+      // Home: 9 of 15 (1.8 per match). Away: 7 of 9 (2.33 per match).
+      final r = _run(
+        withForm(1, 'Home', const ['W', 'W', 'W', 'L', 'L']),
+        withForm(2, 'Away', const ['W', 'W', 'D']),
+      );
+      final form = r.reasons.firstWhere((r) => r.factor == 'form');
+      expect(form.favours, PredictionFavour.away);
+    });
+
+    test('one side without form: the line names only the side with form', () {
+      final r = _run(
+        withForm(1, 'Home', const ['W', 'D', 'L']),
+        _team(id: 2, name: 'Away', ppg: 1.5),
+      );
+      final form = r.reasons.firstWhere((r) => r.factor == 'form');
+      expect(
+        form.text,
+        'Recent form, shown for context and not used in the estimate: '
+        'Home took 4 of 9 points.',
+      );
+      expect(form.favours, PredictionFavour.none);
+      expect(r.missingNotes, contains('Recent form is missing for Away.'));
+    });
+
+    test('no form line when neither team has form', () {
+      final r = _run(_team(ppg: 1.5), _team(id: 2, name: 'Away', ppg: 1.5));
+      expect(r.reasons.any((r) => r.factor == 'form'), isFalse);
+    });
+
+    test('no order note: the order cannot matter when form is unused', () {
+      final r = _run(
+        withForm(1, 'Home', const ['W', 'W', 'L'], ordered: false),
+        withForm(2, 'Away', const ['D', 'W', 'L'], ordered: false),
+      );
+      expect(r.reasons.any((r) => r.factor == 'formOrder'), isFalse);
+    });
+
+    test('streak lines are still shown', () {
+      final r = _run(
+        withForm(1, 'Home', const ['W', 'W', 'W', 'L', 'L']),
+        _team(id: 2, name: 'Away', ppg: 1.5),
+      );
+      expect(
+        r.reasons.any(
+          (r) =>
+              r.factor == 'streak' && r.text == 'Home have won their last 3.',
+        ),
+        isTrue,
+      );
     });
   });
 }

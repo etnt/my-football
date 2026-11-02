@@ -147,7 +147,7 @@ void main() {
     expect(find.text('Draw 24%'), findsOneWidget);
     expect(find.text('Chelsea 24%'), findsOneWidget);
     expect(
-      find.text('Estimate based on table and form. Not betting advice.'),
+      find.text('Estimate based on the league table. Not betting advice.'),
       findsOneWidget,
     );
   });

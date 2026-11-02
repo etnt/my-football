@@ -8,26 +8,50 @@ import 'team_form.dart';
 /// first `n` are used for `n` results.
 const List<double> defaultRecencyWeights = [1.0, 0.9, 0.8, 0.7, 0.6];
 
-/// Starting constants for the prediction formula (plan §4). All heuristic;
-/// versioned so they can be tuned and back-tested (TASK-024).
+/// Constants for the prediction formula (plan §4). Versioned so they can be
+/// tuned and back-tested (TASK-024).
+///
+/// The defaults are formula v1.1 (plan §4.8): the logistic scale, home
+/// advantage and draw centre were fitted on 12 league seasons and checked on
+/// 12 later ones. Recent form showed no predictive value on top of the table,
+/// so [formWeight] is 0 and form is shown for context only.
 class PredictionWeights {
   const PredictionWeights({
     this.shrinkageK = 3,
     this.goalDiffWeight = 0.25,
-    this.formWeight = 0.35,
+    this.formWeight = 0.0,
     this.recencyWeights = defaultRecencyWeights,
     this.recencyWeighting = true,
-    this.homeAdvantage = 0.20,
-    this.logisticScale = 1.6,
-    this.drawCenter = 0.55,
+    this.homeAdvantage = 0.40,
+    this.logisticScale = 0.80,
+    this.drawCenter = 0.57,
     this.leagueAvgPpgFallback = 1.37,
-    this.version = 'v1',
+    this.version = 'v1.1',
   });
+
+  /// The original v1 starting constants (plan §4.1–4.3), kept so the
+  /// back-test can compare against them.
+  const PredictionWeights.v1({this.recencyWeighting = true})
+    : shrinkageK = 3,
+      goalDiffWeight = 0.25,
+      formWeight = 0.35,
+      recencyWeights = defaultRecencyWeights,
+      homeAdvantage = 0.20,
+      logisticScale = 1.6,
+      drawCenter = 0.55,
+      leagueAvgPpgFallback = 1.37,
+      version = 'v1';
 
   /// Small-sample shrinkage constant: `ppg = (points + k·L) / (played + k)`.
   final int shrinkageK;
   final double goalDiffWeight;
+
+  /// Weight of the form term in the strength. 0 makes recent form
+  /// context-only: it is still shown, but does not change the estimate.
   final double formWeight;
+
+  /// Whether recent form changes the estimate.
+  bool get formAffectsEstimate => formWeight != 0;
   final List<double> recencyWeights;
 
   /// Switch for the recency weighting so the back-test can compare weighted
@@ -94,7 +118,8 @@ String _ordinal(int n) {
 
 double _sigmoid(double x) => 1 / (1 + math.exp(-x));
 
-/// Pure, deterministic prediction calculation (formula v1, plan §4).
+/// Pure, deterministic prediction calculation (plan §4; formula version in
+/// [PredictionWeights.version]).
 class PredictionCalculator {
   const PredictionCalculator({this.weights = const PredictionWeights()});
 
@@ -123,9 +148,10 @@ class PredictionCalculator {
     final Verdict verdict;
     final bool isSlight;
     if (gap < 0.10) {
-      // A plain "highest probability" rule would almost never pick a draw
-      // (plan §4.4). isSlight stays false: there is no favourite side here.
-      verdict = Verdict.closeDrawLikely;
+      // Neither side is clearly ahead: too close to call (tip 1X2). The draw
+      // is never the most likely single outcome, so it is not named as the
+      // verdict (plan §4.4, §4.9). isSlight stays false: no favourite here.
+      verdict = Verdict.tooClose;
       isSlight = false;
     } else if (pHome > pAway) {
       verdict = Verdict.homeWin;
@@ -238,7 +264,12 @@ class PredictionCalculator {
     // missing the missing note explains it (navigator decision: missing
     // data lives in missingNotes, not here).
     final formGap = home.formTerm - away.formTerm;
-    if (home.hasForm && away.hasForm) {
+    if (!weights.formAffectsEstimate) {
+      // v1.1: form is context only (plan §4.8). The line must say so, and
+      // it quotes raw points only, so `favours` follows the raw points.
+      final context = _formContextReason(home, away);
+      if (context != null) reasons.add(_Weighted(context, 0));
+    } else if (home.hasForm && away.hasForm) {
       final favours = formGap > 0
           ? PredictionFavour.home
           : formGap < 0
@@ -301,8 +332,9 @@ class PredictionCalculator {
       );
     }
 
-    // Streak lines: display only, the streak is already part of the
-    // weighted form, so it adds nothing to d (contribution 0).
+    // Streak lines: display only (contribution 0). With a form weight the
+    // streak is already part of the weighted form; without one (v1.1) form
+    // does not enter d at all.
     for (final side in [home, away]) {
       if (!side.hasForm) continue;
       // With an unknown `strForm` order the list is not newest first, so a
@@ -342,8 +374,10 @@ class PredictionCalculator {
     }
 
     // Unknown strForm order: the sequence is not used, so every match
-    // counts the same. This changes how d is computed, hence a reason.
-    if ((home.usesUnorderedStandingForm || away.usesUnorderedStandingForm)) {
+    // counts the same. This changes how d is computed, hence a reason. When
+    // form does not affect the estimate the note would be noise.
+    if (weights.formAffectsEstimate &&
+        (home.usesUnorderedStandingForm || away.usesUnorderedStandingForm)) {
       reasons.add(
         _Weighted(
           const PredictionReason(
@@ -410,6 +444,41 @@ class PredictionCalculator {
   String _betterName(_TeamMath home, _TeamMath away, double formGap) {
     if (formGap < 0) return away.factors.name;
     return home.factors.name;
+  }
+
+  /// The context-only form line (form weight 0). Null when neither team has
+  /// form; a single missing side is already covered by the missing notes.
+  PredictionReason? _formContextReason(_TeamMath home, _TeamMath away) {
+    if (!home.hasForm && !away.hasForm) return null;
+    String part(_TeamMath side) {
+      final points = _totalPoints(side.factors.form);
+      return '${side.factors.name} took $points of '
+          '${3 * side.factors.form.length} points';
+    }
+
+    final parts = [if (home.hasForm) part(home), if (away.hasForm) part(away)];
+    var favours = PredictionFavour.none;
+    if (home.hasForm && away.hasForm) {
+      // Compare as points per match: the two lists can differ in length.
+      final h = _totalPoints(home.factors.form) / home.factors.form.length;
+      final a = _totalPoints(away.factors.form) / away.factors.form.length;
+      favours = h > a
+          ? PredictionFavour.home
+          : h < a
+          ? PredictionFavour.away
+          : PredictionFavour.none;
+    }
+    return PredictionReason(
+      factor: 'form',
+      favours: favours,
+      text:
+          'Recent form, shown for context and not used in the estimate: '
+          '${parts.join(', ')}.',
+      numbers: {
+        'homeFormPoints': _totalPoints(home.factors.form),
+        'awayFormPoints': _totalPoints(away.factors.form),
+      },
+    );
   }
 
   /// Largest-remainder rounding so the shown percentages sum to exactly 100

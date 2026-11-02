@@ -25,6 +25,8 @@ const _predictionVocabulary = {
   // Outcome wording.
   'win', 'wins', 'won', 'losing', 'drawn', 'draws', 'victory',
   'possible', 'possibly', 'probably', 'suggests', 'suggesting', 'suggest',
+  // "Too close to call" verdict wording.
+  'too', 'call', 'either', 'way', 'uncertain', 'open',
   'edges', 'lean', 'leans', 'leaning', 'favours', 'favors',
   // Sentence openers a faithful rewrite commonly starts with. The recap's
   // shared opener list lacks these, and a false reject means the summary is

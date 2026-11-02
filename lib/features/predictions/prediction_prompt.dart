@@ -45,7 +45,7 @@ String _verdictText(PredictionResult result) {
   return switch (result.verdict) {
     Verdict.homeWin => 'Home win$slight',
     Verdict.awayWin => 'Away win$slight',
-    Verdict.closeDrawLikely => 'Close – draw likely',
+    Verdict.tooClose => 'Too close to call',
   };
 }
 

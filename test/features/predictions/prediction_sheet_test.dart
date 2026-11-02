@@ -151,24 +151,59 @@ void main() {
     await _openSheet(tester, outcome: () => _result());
 
     expect(
-      find.text('Estimate based on table and form. Not betting advice.'),
+      find.text('Estimate based on the league table. Not betting advice.'),
       findsOneWidget,
     );
     expect(find.textContaining('odds'), findsNothing);
     expect(find.textContaining('calibrated'), findsNothing);
   });
 
-  testWidgets('the draw verdict is shown verbatim', (tester) async {
+  testWidgets('the too-close verdict is shown verbatim with tip 1X2', (
+    tester,
+  ) async {
     await _openSheet(
       tester,
-      outcome: () => _result(verdict: Verdict.closeDrawLikely),
+      outcome: () => _result(verdict: Verdict.tooClose),
     );
-    expect(find.text('Close – draw likely'), findsOneWidget);
+    expect(find.text('Too close to call'), findsOneWidget);
+    expect(find.text('1X2'), findsOneWidget);
   });
 
-  testWidgets('the slight-favourite verdict is shown verbatim', (tester) async {
+  testWidgets('the slight-favourite verdict is shown verbatim with tip 1X', (
+    tester,
+  ) async {
     await _openSheet(tester, outcome: () => _result(isSlight: true));
     expect(find.text('Home win – slight favourite'), findsOneWidget);
+    expect(find.text('1X'), findsOneWidget);
+  });
+
+  testWidgets('a clear verdict shows a single tip', (tester) async {
+    await _openSheet(
+      tester,
+      outcome: () => _result(verdict: Verdict.awayWin),
+    );
+    expect(find.text('Away win'), findsOneWidget);
+    expect(find.text('2'), findsOneWidget);
+  });
+
+  testWidgets('the tip is spelled out for screen readers', (tester) async {
+    final handle = tester.ensureSemantics();
+    await _openSheet(tester, outcome: () => _result(isSlight: true));
+    expect(
+      find.bySemanticsLabel('Tip 1X: Home win or draw'),
+      findsOneWidget,
+    );
+    handle.dispose();
+  });
+
+  testWidgets('tip and verdict fit at text scale 2.0', (tester) async {
+    await _openSheet(
+      tester,
+      outcome: () => _result(verdict: Verdict.tooClose),
+      textScale: 2.0,
+    );
+    expect(tester.takeException(), isNull);
+    expect(find.text('1X2'), findsOneWidget);
   });
 
   testWidgets('PredictionUnavailable shows "Not enough data" and the reason', (
@@ -203,7 +238,7 @@ void main() {
     expect(tester.takeException(), isNull);
     // The content is still all there, reachable through the scroll view.
     expect(
-      find.text('Estimate based on table and form. Not betting advice.'),
+      find.text('Estimate based on the league table. Not betting advice.'),
       findsOneWidget,
     );
   });

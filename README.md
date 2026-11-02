@@ -56,8 +56,12 @@ richer team data.
 - In `Upcoming`, double-tap a future match to set a kick-off reminder.
 - Long press a future match to see a predicted result: the estimated home
   win, draw and away win chances, a verdict, and the reasons behind them.
-- The prediction is an estimate based on the league table and recent form.
-  It is not betting advice.
+- The verdict comes with a 1/X/2 tip: `1` home win, `X` draw, `2` away win.
+  A slight favourite gets `1X` or `X2`, and a match that is too close to
+  call gets `1X2`.
+- The prediction is an estimate based on the league table (points per game,
+  goal difference) and home advantage. Recent form and streaks are shown for
+  context. It is not betting advice.
 - With a free API key, recent form can be incomplete; the sheet says when
   data is missing instead of guessing.
 - A single tap on an upcoming match does not open it.

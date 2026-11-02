@@ -1,8 +1,8 @@
 ---
 goal: Estimate likely outcomes for upcoming matches and explain the factors
-version: 1.2
+version: 1.3
 date_created: 2026-10-31
-last_updated: 2026-11-01
+last_updated: 2026-11-02
 owner: my-football maintainers
 status: 'Proposed'
 tags: [feature, fixtures, prediction, standings, ai]
@@ -13,7 +13,8 @@ tags: [feature, fixtures, prediction, standings, ai]
 A long press on an upcoming fixture opens a prediction sheet. The sheet shows:
 
 - the estimated chance of a home win, a draw and an away win (sum = 100%);
-- a verdict: home win, away win, or "Close – draw likely";
+- a verdict: home win, away win, or "Too close to call", with a 1/X/2 tip
+  (§4.9);
 - a "Why this estimate?" list of the factors behind the numbers;
 - notes on missing or partial data, and a disclaimer.
 
@@ -24,6 +25,25 @@ It never picks the outcome. The feature works fully without AI.
 
 The v1 feature makes **no new API calls** beyond data the app already loads
 and caches (standings and season events).
+
+### Changes in v1.3 of this plan
+
+- New formula **v1.1** (§4.8), the default `PredictionWeights`. Back-tested on
+  24 league seasons. Home advantage goes from 0.20 to 0.40, the logistic
+  scale from 1.6 to 0.80 and the draw centre from 0.55 to 0.57. v1 was too
+  confident and underrated home advantage.
+- Recent form does not change the estimate any more (`formWeight = 0`).
+  The back-test showed that form, also when adjusted for the opponent's
+  strength, adds nothing on top of the table. The sheet still shows form and
+  streaks, labelled as context only.
+- The disclaimer is now "Estimate based on the league table. Not betting
+  advice." (REQ-010).
+- The back-test CLI now compares the shipped formula with the v1 constants
+  (`PredictionWeights.v1()`) instead of recency on/off.
+- The verdict "Close – draw likely" is now "Too close to call", and the
+  sheet shows a 1/X/2 tip next to the verdict (§4.9).
+- Note: "formula v1.1" is the `PredictionWeights.version`. It is not the same
+  as "v1.1 of this plan" (ALT-006).
 
 ### Changes in v1.2 of this plan
 
@@ -118,8 +138,9 @@ and caches (standings and season events).
   `StandingsRepository` and `FixturesRepository` already do, including their
   caches.
 - **REQ-009**: Tap and double-tap behavior stays unchanged.
-- **REQ-010**: The sheet says "Estimate based on table and form. Not betting
-  advice." The UI never says "calibrated" or "odds".
+- **REQ-010**: The sheet says "Estimate based on the league table. Not
+  betting advice." (until formula v1.1: "Estimate based on table and form.")
+  The UI never says "calibrated" or "odds".
 - **REQ-011**: The percentages are shown as text, not only as color, and the
   layout works with large text.
 - **CON-001**: Prediction never depends on AI. AI prose, if shipped, is
@@ -250,10 +271,12 @@ A plain "highest probability" rule almost never picks a draw (the draw peaks
 at about 27%). The user goal includes "or a draw is most likely", so the
 verdict is:
 
-- `|pHome − pAway| < 0.10` (about `|d| < 0.14`) → **"Close – draw likely"**.
-  Equal teams therefore give "Home win – slight favourite" because of home
-  advantage. The draw verdict appears when the away side is a little stronger
-  and cancels the home advantage.
+- `|pHome − pAway| < 0.10` (about `|d| < 0.14` in v1) → **"Too close to
+  call"** (until v1.3 of this plan: "Close – draw likely"; renamed because
+  the draw is never the most likely single outcome, see §4.9). Equal teams
+  give "Home win – slight favourite" because of home advantage. This verdict
+  appears when the away side is a little stronger and cancels the home
+  advantage.
 - otherwise the side with the higher probability → **"Home win"** /
   **"Away win"**, with "slight favourite" when the gap is < 0.20.
 
@@ -308,6 +331,111 @@ predicted fixture's own kickoff (strict `isBefore`), so a Sunday match never
 sees the same round's Saturday results; and the back-test reports argmax
 accuracy rather than the sheet's verdict, because the verdict's draw band is
 a presentation rule, not a probability.
+
+### 4.8 Formula v1.1 (back-tested; shipped default)
+
+§4.1–4.7 describe formula v1. Its constants were starting values. Formula
+v1.1 keeps the same structure, with new constants from a back-test:
+
+| Constant | v1 | v1.1 |
+|----------|----|------|
+| Home advantage `H` | 0.20 | **0.40** |
+| Logistic scale `a` | 1.6 | **0.80** |
+| Draw centre `c` | 0.55 | **0.57** |
+| Form weight | 0.35 | **0** (context only) |
+| `k`, goal-difference weight, league fallback | 3, 0.25, 1.37 | unchanged |
+
+`PredictionWeights()` is v1.1. `PredictionWeights.v1()` keeps the old
+constants for comparison.
+
+**Method.** Full seasons with a Premium key: Premier League, La Liga,
+Bundesliga, Serie A and Ligue 1 (2021-22 to 2024-25) and Allsvenskan (2022
+to 2025), about 8,000 matches. Each match was predicted with the table and
+form as they stood at kickoff (the same strict cutoff as TASK-024). The
+constants were fitted on the two older seasons of each league. All results
+below are from the two newer seasons (3,878 matches) that the fit did not
+see. Lower Brier score is better.
+
+| Model (out of sample) | Brier | Accuracy |
+|-----------------------|-------|----------|
+| Always the training home/draw/away rates | 0.652 | 42.5% |
+| v1 as shipped | 0.630 | 50.9% |
+| v1 structure, constants refitted | 0.603 | 50.6% |
+| Table only (no form term), refitted = **v1.1** | **0.601** | 50.9% |
+| Table + opponent-adjusted form (points vs expected points) | 0.603 | 50.5% |
+| Table + home/away split ppg | 0.601 | 51.2% |
+| Poisson attack/defence ratings, time-decayed | 0.602 | 50.6% |
+| Elo, current season only (also phased in from the table) | 0.600–0.602 | 51–52% |
+
+Run over all 24 seasons with the shipped code (`runBacktest`), v1.1 beats v1
+in every league season. Overall Brier is 0.603 for v1.1 and 0.635 for v1;
+accuracy is 51.1% for v1.1 and 50.6% for v1.
+
+**Findings.**
+
+- v1 was about twice as confident as the results support (`a` 1.6 against
+  a fitted 0.8). It also underrated home advantage. With v1.1, top against
+  bottom (`d` = 1.2) gives 60 / 22 / 18. v1 gave 74 / 16 / 10.
+- Recent form adds no predictive value on top of points per game and goal
+  difference. This holds for plain, recency-weighted and opponent-adjusted
+  form (a loss to a strong side counts less than a loss to a weak side).
+  The recency on/off difference was noise in every run.
+- A current-season Elo rating gives no clear gain over the table, also when
+  it is phased in as the season goes. In a round robin, the strength of the
+  opponents evens out, so the table already carries the same information.
+  Early in the season, Elo starts from equal ratings and knows no more than
+  the table.
+- Only data from the previous season clearly helped: Elo carried over with
+  regression to the mean gave Brier 0.590, mostly in the first rounds. This
+  was **not adopted**: it needs an extra request for the previous season
+  (REQ-008), and the free key cannot supply it.
+
+v1.1 reference values (home / draw / away): `d` = 0 → 36 / 28 / 36; equal
+teams (`d` = 0.4) → 44 / 27 / 29; `d` = 0.7 → 50 / 26 / 24; `d` = 1.2 →
+60 / 22 / 18. The verdict rule (§4.4) is unchanged. Equal teams still give
+"Home win – slight favourite".
+
+With form weight 0, the form reason reads "Recent form, shown for context
+and not used in the estimate: …". It quotes raw points only. The
+unknown-order note is dropped, because the order cannot change the estimate.
+Streak lines and the missing-form notes stay.
+
+### 4.9 The 1/X/2 tip
+
+The sheet shows the verdict as a tip in the familiar 1/X/2 notation: `1` is
+a home win, `X` a draw and `2` an away win. A badge next to the verdict
+shows the tip. A tooltip and the screen-reader label spell it out, for
+example "Tip 1X: Home win or draw". `PredictionResult.tip` derives the tip
+from the verdict only, so the tip and the verdict never disagree:
+
+| Gap `|pHome − pAway|` | Verdict | Tip |
+|---|---|---|
+| ≥ 0.20 | Home win / Away win | `1` / `2` |
+| 0.10 – 0.20 | … – slight favourite | `1X` / `X2` |
+| < 0.10 | Too close to call | `1X2` |
+
+- **No lone `X`.** With v1.1, the draw chance peaks at about 28%. It is
+  never the most likely single outcome. Across the 24 back-test seasons, the
+  highest draw chance was 27.8%. A lone `X` would be wrong at least 72% of
+  the time.
+- **No `12`.** In the ordered-logistic model the draw sits between the two
+  wins, so "either side but not a draw" never follows from the numbers.
+- **Back-test (v1.1, 7,902 matches, all 24 seasons):**
+
+  | Tip | Share of matches | Right |
+  |-----|------------------|-------|
+  | `1` | 42% | 58% |
+  | `2` | 14% | 55% |
+  | `1X` | 13% | 72% |
+  | `X2` | 9% | 74% |
+  | `1X2` | 23% | always (it covers every result) |
+
+  Bands of 0.25 / 0.05 instead of 0.20 / 0.10 would cut `1X2` to about 12%
+  and give more double tips. This was not adopted, so the verdict bands stay
+  unchanged.
+- The tip is not in the AI prompt. The validator's number check would
+  otherwise have to accept the digits in `1X2`. The validator does accept
+  the "too close to call" wording.
 
 ## 5. Implementation steps
 
@@ -419,6 +547,11 @@ Still open (needs a Premium key):
 - Tune `PredictionWeights` (including the recency weights) and bump
   `version` only if the evidence says the weighted form is at least as good.
 
+Update (2026-11-02): done. The Premium run covered 24 league seasons. The
+tuning produced formula v1.1 (§4.8). The weighted form was not better, so the
+form weight is now 0. The CLI now compares the shipped formula with
+`PredictionWeights.v1()`.
+
 Found and fixed while building this: `Fixture.resultFor(teamId)` returned a
 W/D/L for any team id, treating a non-participant as the away side. That is
 harmless for `TeamDetailScreen` (it passes one team's own fixtures) but wrong
@@ -466,8 +599,9 @@ availability attempt and zero generate calls.
 - **RISK-001**: On the free key, form comes from `strForm` only. If the API
   leaves it empty for some leagues, the result is `tableOnly`. This is
   mitigated by the completeness note.
-- **RISK-002**: The constants are heuristic. Mitigated by the disclaimer, the
-  versioned weights and optional TASK-024.
+- **RISK-002**: The constants are heuristic. Mitigated by the disclaimer and
+  the versioned weights. Since formula v1.1 they are fitted by the back-test
+  (§4.8). Re-check them when the leagues or the data source change.
 - **RISK-003**: A long press can be hard to discover. Mitigated by the
   semantics hint and the README. A one-time snackbar hint is possible later.
 - **RISK-004**: Standings may be up to 6 h old after a match day. A

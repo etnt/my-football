@@ -73,6 +73,16 @@ void main() {
     expect(validation.ok, isTrue);
   });
 
+  test('the "too close to call" wording is accepted', () {
+    final validation = validatePredictionText(
+      'Too close to call: Arsenal and Chelsea are hard to separate, and the '
+      'match could go either way.',
+      fixture,
+      result,
+    );
+    expect(validation.ok, isTrue);
+  });
+
   test('common sentence openers are accepted', () {
     for (final text in [
       'Based on the table, Arsenal are 1st and Chelsea are 8th.',

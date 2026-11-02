@@ -3,7 +3,7 @@
 // Rebuilds the league table and recent form at each fixture's kickoff from
 // the cached season events, predicts every finished match with the formula,
 // and reports argmax accuracy and Brier score against the in-sample baseline,
-// once with recency weighting on and once with it off.
+// once with the shipped formula and once with the original v1 constants.
 //
 // Key safety: the API key comes from the environment only (SPORTSDB_API_KEY).
 // The tool never reads a key file, never prints the key, any request URL or
@@ -23,7 +23,8 @@ import 'package:my_football/models/fixture.dart';
 
 import 'src/backtest.dart';
 
-const _usage = '''
+const _usage =
+    '''
 Back-test the match prediction formula against one league season.
 
 Usage:
@@ -107,36 +108,31 @@ Future<void> main(List<String> arguments) async {
     exit(0);
   }
 
-  final (:weighted, :plain) = compareBacktests(events);
-  stdout.writeln(formatReport(weighted));
-  stdout.writeln(formatReport(plain));
+  final (:current, :v1) = compareBacktests(events);
+  stdout.writeln(formatReport(current));
+  stdout.writeln(formatReport(v1));
 
-  if (weighted.n == 0) {
+  if (current.n == 0) {
     stdout.writeln('not enough data: no fixture could be scored.');
     exit(0);
   }
 
-  // §4.7: keep the weighting only if it is at least as good. Both metrics
-  // come from the same scored fixtures, so the comparison is like-for-like.
-  final keepsWeighting =
-      weighted.accuracy >= plain.accuracy && weighted.brier <= plain.brier;
-  stdout.writeln('comparison (same ${weighted.n} scored fixtures):');
+  // Both metrics come from the same scored fixtures, so the comparison is
+  // like-for-like. One season is noisy: judge tuning on several (plan §4.8).
+  final cur = current.formulaVersion;
+  final old = v1.formulaVersion;
+  stdout.writeln('comparison (same ${current.n} scored fixtures):');
   stdout.writeln(
-    '  accuracy: weighted ${weighted.accuracy.toStringAsFixed(3)} '
-    'vs plain ${plain.accuracy.toStringAsFixed(3)}',
+    '  accuracy: $cur ${current.accuracy.toStringAsFixed(3)} '
+    'vs $old ${v1.accuracy.toStringAsFixed(3)}',
   );
   stdout.writeln(
-    '  Brier:    weighted ${weighted.brier.toStringAsFixed(4)} '
-    'vs plain ${plain.brier.toStringAsFixed(4)} (lower is better)',
+    '  Brier:    $cur ${current.brier.toStringAsFixed(4)} '
+    'vs $old ${v1.brier.toStringAsFixed(4)} (lower is better)',
   );
-  stdout.writeln(
-    keepsWeighting
-        ? '  the recency weighting is at least as good on both metrics.'
-        : '  the recency weighting is worse on at least one metric.',
-  );
-  if (weighted.n < minMeaningfulSample) {
+  if (current.n < minMeaningfulSample) {
     stdout.writeln(
-      '  n = ${weighted.n} is too small to support a tuning decision.',
+      '  n = ${current.n} is too small to support a tuning decision.',
     );
   }
 }
