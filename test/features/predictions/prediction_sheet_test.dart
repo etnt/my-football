@@ -151,7 +151,7 @@ void main() {
     await _openSheet(tester, outcome: () => _result());
 
     expect(
-      find.text('Estimate based on the league table. Not betting advice.'),
+      find.text('Estimate based on the league table and recent form. Not betting advice.'),
       findsOneWidget,
     );
     expect(find.textContaining('odds'), findsNothing);
@@ -238,7 +238,7 @@ void main() {
     expect(tester.takeException(), isNull);
     // The content is still all there, reachable through the scroll view.
     expect(
-      find.text('Estimate based on the league table. Not betting advice.'),
+      find.text('Estimate based on the league table and recent form. Not betting advice.'),
       findsOneWidget,
     );
   });

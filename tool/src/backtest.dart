@@ -61,6 +61,9 @@ class BacktestTable {
 
   int get teamCount => _rows.length;
 
+  /// Every row, in no particular order.
+  Iterable<BacktestStanding> get rows => _rows.values;
+
   /// Average points per game over the rows that have played. 0 when no team
   /// has played (the calculator then falls back to its constant).
   double get leagueAvgPpg {
@@ -175,6 +178,7 @@ PredictionInput? buildInput(
   // Season-event form: the order is always known (fixture dates, plan §4.1),
   // so `formOrdered` is true and the recency weighting applies when it is on.
   TeamFactors factors(BacktestStanding s) {
+    final matches = recentMatches(s.teamId, events, before: fixture.dateUtc);
     return TeamFactors(
       teamId: s.teamId,
       name: s.name,
@@ -182,9 +186,10 @@ PredictionInput? buildInput(
       played: s.played,
       points: s.points,
       goalsDiff: s.goalsDiff,
-      form: recentForm(s.teamId, events, before: fixture.dateUtc),
+      form: [for (final m in matches) m.resultFor(s.teamId)!],
       formOrdered: true,
       formSource: FormSource.seasonEvents,
+      formMatches: formMatchesFor(s.teamId, matches),
     );
   }
 
@@ -193,6 +198,14 @@ PredictionInput? buildInput(
     home: factors(home),
     away: factors(away),
     leagueAvgPpg: table.leagueAvgPpg,
+    table: {
+      for (final row in table.rows)
+        row.teamId: TeamRecord(
+          played: row.played,
+          points: row.points,
+          goalsDiff: row.goalsDiff,
+        ),
+    },
   );
 }
 
@@ -381,11 +394,15 @@ BacktestReport runBacktest({
 }
 
 /// Runs the comparison on the same season: the shipped formula against the
-/// original v1 constants (plan §4.8), so a regression shows up at once.
-({BacktestReport current, BacktestReport v1}) compareBacktests(
-  List<Fixture> events,
-) => (
+/// table-only formula v1.1 (plan §4.8), which shows what recent form adds,
+/// and against the original v1 constants, so a regression shows up at once.
+({BacktestReport current, BacktestReport tableOnly, BacktestReport v1})
+compareBacktests(List<Fixture> events) => (
   current: runBacktest(events: events),
+  tableOnly: runBacktest(
+    events: events,
+    weights: const PredictionWeights.v1_1(),
+  ),
   v1: runBacktest(events: events, weights: const PredictionWeights.v1()),
 );
 

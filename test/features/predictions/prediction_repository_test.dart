@@ -212,7 +212,7 @@ void main() {
     );
   });
 
-  test('derived season-event form is preferred from 3 results on', () async {
+  test('derived season-event form is preferred over strForm', () async {
     final kickoff = DateTime.now().toUtc().add(const Duration(days: 7));
     final repository = await _repository(
       prefs,
@@ -235,9 +235,18 @@ void main() {
     expect(input.home.formSource, FormSource.seasonEvents);
     expect(input.home.formOrdered, isTrue);
     expect(input.home.form, ['W', 'W', 'W']); // newest first
+    // Opponent and venue for opponent-adjusted form (plan §4.10).
+    expect(input.home.formMatches, hasLength(3));
+    for (final m in input.home.formMatches) {
+      expect(m.result, 'W');
+      expect(m.atHome, isTrue);
+      expect(m.opponentId, 51);
+    }
+    // The whole table is passed on to rate the opponents.
+    expect(input.table.keys, containsAll([1, 2]));
   });
 
-  test('falls back to strForm with fewer than 3 derived results', () async {
+  test('derived form is used from a single result (Premium)', () async {
     final kickoff = DateTime.now().toUtc().add(const Duration(days: 7));
     final repository = await _repository(
       prefs,
@@ -247,9 +256,8 @@ void main() {
       ],
       events: [
         _fixture(),
-        // Only two derived results, so the season-event source is not used.
+        // One derived result is enough: Premium season events are complete.
         _result(id: 1, homeId: 1, daysBeforeKickoff: 7, kickoffUtc: kickoff),
-        _result(id: 2, homeId: 1, daysBeforeKickoff: 14, kickoffUtc: kickoff),
       ],
     );
     final input = await repository.build(
@@ -257,11 +265,31 @@ void main() {
       season: 2026,
       fixtureId: 100,
     );
+    expect(input.home.formSource, FormSource.seasonEvents);
+    expect(input.home.form, ['W']);
+    expect(input.home.formMatches, hasLength(1));
+  });
+
+  test('falls back to strForm when no derived result exists', () async {
+    final repository = await _repository(
+      prefs,
+      table: [
+        _row(id: 1, name: 'Arsenal', form: 'WWDWL'),
+        _row(id: 2, name: 'Chelsea', form: 'LLWDL'),
+      ],
+      events: [_fixture()],
+    );
+    final input = await repository.build(
+      league: league,
+      season: 2026,
+      fixtureId: 100,
+    );
     expect(input.home.formSource, FormSource.standingsForm);
-    // The strForm order is unknown (TASK-019), so it is not treated as
-    // newest-first data.
-    expect(input.home.formOrdered, isFalse);
-    expect(input.home.form, ['W', 'W', 'D', 'W', 'W']);
+    // TASK-019 confirmed the strForm order: newest first, as it appears.
+    expect(input.home.formOrdered, isTrue);
+    expect(input.home.form, ['W', 'W', 'D', 'W', 'L']);
+    // strForm has no opponents: form is compared with the season average.
+    expect(input.home.formMatches, isEmpty);
   });
 
   test('no form anywhere yields the none source (REQ-006)', () async {

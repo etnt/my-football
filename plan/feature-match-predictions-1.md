@@ -1,6 +1,6 @@
 ---
 goal: Estimate likely outcomes for upcoming matches and explain the factors
-version: 1.3
+version: 1.4
 date_created: 2026-10-31
 last_updated: 2026-11-02
 owner: my-football maintainers
@@ -25,6 +25,25 @@ It never picks the outcome. The feature works fully without AI.
 
 The v1 feature makes **no new API calls** beyond data the app already loads
 and caches (standings and season events).
+
+### Changes in v1.4 of this plan
+
+- New formula **v1.2** (§4.10), the default `PredictionWeights`. Recent
+  form counts again, with a small weight (0.10). Each recent result is
+  compared with the points expected against that opponent at that venue. A
+  loss to a much stronger side costs less than a loss to a much weaker side,
+  and the reverse holds for wins.
+- With `strForm` only (no opponents known), form is compared with the
+  team's own season average, as in v1.
+- `PredictionWeights.v1_1()` keeps the table-only formula. The back-test CLI
+  compares the shipped formula with v1.1 and v1.
+- The disclaimer is "Estimate based on the league table and recent form.
+  Not betting advice." again (REQ-010).
+- TASK-019 is done: the `strForm` letters are **newest first**
+  (`standingsFormOrder = newestFirst`; evidence under TASK-019).
+- The app assumes a Premium key. Source A (season events) is used from 1
+  result instead of 3, so opponent-adjusted form starts in round 2. `strForm`
+  is only a fallback.
 
 ### Changes in v1.3 of this plan
 
@@ -138,9 +157,10 @@ and caches (standings and season events).
   `StandingsRepository` and `FixturesRepository` already do, including their
   caches.
 - **REQ-009**: Tap and double-tap behavior stays unchanged.
-- **REQ-010**: The sheet says "Estimate based on the league table. Not
-  betting advice." (until formula v1.1: "Estimate based on table and form.")
-  The UI never says "calibrated" or "odds".
+- **REQ-010**: The sheet says "Estimate based on the league table and recent
+  form. Not betting advice." (formula v1: "Estimate based on table and
+  form."; formula v1.1: "Estimate based on the league table.") The UI never
+  says "calibrated" or "odds".
 - **REQ-011**: The percentages are shown as text, not only as color, and the
   layout works with large text.
 - **CON-001**: Prediction never depends on AI. AI prose, if shipped, is
@@ -202,12 +222,16 @@ Let `L` be the league average points per game (from the table; fall back to
 3. **Recent form (up to 5 results).**
    - Source A: the last finished fixtures for the team in the cached season
      events, before kickoff, newest 5, via `Fixture.resultFor`. Use this when
-     it has ≥ 3 results.
-     The order is always known (fixture dates).
+     it has ≥ 1 result (≥ 3 until plan v1.4; the app now assumes a Premium
+     key, so the season events are complete). The order is always known
+     (fixture dates).
    - Source B: `TeamStanding.form`, only if it matches `^[WDL]{1,5}$`
      (ignore other characters and case). The order is known only if the
      constant `standingsFormOrder` (set by TASK-019) is `newestFirst` or
-     `oldestFirst`. While it is `unknown`, the order is not used.
+     `oldestFirst`. While it is `unknown`, the order is not used. Since plan
+     v1.4 it is `newestFirst` (TASK-019 evidence). With a Premium key,
+     source B is only a fallback for when the season events have no result
+     for the team.
    - Otherwise: form is missing.
    - **Recency-weighted points.** Sort the results newest first. Give them the
      weights `w = [1.0, 0.9, 0.8, 0.7, 0.6]` (only the first `n` are used).
@@ -437,13 +461,60 @@ from the verdict only, so the tip and the verdict never disagree:
   otherwise have to accept the digits in `1X2`. The validator does accept
   the "too close to call" wording.
 
+### 4.10 Formula v1.2: opponent-adjusted form (shipped default)
+
+v1.1 left form out because no form variant improved the back-test (§4.8).
+v1.2 brings form back by request, so that the estimate reflects recent
+results. The weight is small enough that accuracy does not suffer.
+
+**Per recent match** (up to 5, newest first, from the season events):
+
+```text
+dd       = strength_team − strength_opponent ± H     // + at home, − away
+expected = 3·σ(a·dd − c) + (1 − σ(a·dd − c) − σ(−a·dd − c))
+residual = Σ wᵢ·(pointsᵢ − expectedᵢ) / Σ wᵢ · n / (n + 2)
+formTerm = 0.10 · residual
+```
+
+- `strength` is the table part of §4.2 (shrunk ppg + 0.25 · shrunk goal
+  difference per game), from the current table, for both the team and each
+  opponent. The recency weights wᵢ and the shrinkage `n / (n + 2)` are the
+  same as in §4.1.
+- `TeamFactors.formMatches` carries the result, the venue and the opponent
+  of each match. `PredictionInput.table` carries every team's record.
+- Fallback: with `strForm` only, or if any opponent is missing from the
+  table, the v1 term is used: `0.10 · (formAdj − ppg)`, the form compared
+  with the team's own season average.
+- Reason text, for example: "Recent form against the opponents faced:
+  Arsenal took 9 of 15 points where 6.2 were expected; Fulham took 3 of 15
+  points where 4.8 were expected, with recent matches counting more." A
+  side without opponents gets "(opponents unknown, compared with their
+  season average)". The reason favours the side with the higher form term,
+  so it can favour a side with fewer raw points. The expected points
+  explain why.
+
+**Back-test** (the same 24 seasons, 7,902 matches):
+
+| Formula | Brier | Accuracy |
+|---------|-------|----------|
+| v1.2 (opponent-adjusted form, weight 0.10) | 0.6031 | 51.1% |
+| Opponent-adjusted form, weight 0.20 | 0.6035 | 50.9% |
+| v1.1 (table only) | 0.6029 | 51.1% |
+| v1 | 0.6352 | 50.6% |
+
+The difference between v1.2 and v1.1 is noise. v1.2 is at least as good in
+8 of 24 seasons. Larger weights cost more (§4.8). At weight 0.10, form
+moves the home-win chance by a few percentage points at most. The extreme
+case, 5 wins against a top side against 5 losses to a bottom side, moves it
+by less than 12 points.
+
 ## 5. Implementation steps
 
 ### Phase 1 – Shared helpers and pure calculation
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-019 | **Required, do first.** Learn the `strForm` letter order. With a Premium key (full season events), compare `TeamStanding.form` with `recentForm` for at least 5 teams in 2 leagues, after a match day. Set `const standingsFormOrder` in `team_form.dart` to `newestFirst` or `oldestFirst`, and record the evidence in this plan. If it is inconsistent or there is no Premium key, leave it `unknown` (counts only for source B). Add a test that pins the chosen value. | ✅ (kept `unknown`) | 2026-11-01 |
+| TASK-019 | **Required, do first.** Learn the `strForm` letter order. With a Premium key (full season events), compare `TeamStanding.form` with `recentForm` for at least 5 teams in 2 leagues, after a match day. Set `const standingsFormOrder` in `team_form.dart` to `newestFirst` or `oldestFirst`, and record the evidence in this plan. If it is inconsistent or there is no Premium key, leave it `unknown` (counts only for source B). Add a test that pins the chosen value. | ✅ (`unknown` in v1; `newestFirst` since 2026-11-03, plan v1.4) | 2026-11-03 |
 | TASK-001 | Create `lib/features/predictions/team_form.dart`: `enum FormOrder { newestFirst, oldestFirst, unknown }`; `const standingsFormOrder` (TASK-019); `List<String> recentForm(int teamId, Iterable<Fixture> events, {DateTime? before, int limit = 5})` returns W/D/L **newest first** from finished fixtures; `({List<String> results, bool ordered})? parseStandingForm(String raw)` returns null unless it matches `^[WDL]{1,5}$` (case-insensitive), and when the order is known normalizes the results to newest first; `int currentStreak(List<String> newestFirst)` returns the length of the leading run (0 if < 2). | ✅ | 2026-11-01 |
 | TASK-002 | Refactor `TeamDetailScreen` to use `recentForm`. `recentForm` returns newest first, so reverse it for the existing oldest-to-newest form strip. Distinct kick-off times keep their chronological order; fixtures with the same kick-off time are now ordered by fixture id (newest first) instead of the order being left unspecified by the old comparator. | ✅ | 2026-11-01 |
 | TASK-003 | Create `prediction_input.dart`: `FormSource { seasonEvents, standingsForm, none }`, `TeamFactors { teamId, name, rank, played, points, goalsDiff, List<String> form (newest first), bool formOrdered, FormSource formSource }`, `PredictionInput { fixture, home, away, leagueAvgPpg, sameGroup }`. | ✅ | 2026-11-01 |
@@ -451,13 +522,30 @@ from the verdict only, so the tip and the verdict never disagree:
 | TASK-005 | Create `prediction_calculator.dart`: `PredictionWeights` (k = 3, gd = 0.25, form = 0.35, recency = [1.0, 0.9, 0.8, 0.7, 0.6], `recencyWeighting = true`, H = 0.20, a = 1.6, c = 0.55, version `'v1'`) and `PredictionCalculator.calculate(PredictionInput) → PredictionResult`, implementing §4.1–4.6, including largest-remainder rounding. | ✅ | 2026-11-01 |
 | TASK-006 | Tests `test/features/predictions/team_form_test.dart` and `prediction_calculator_test.dart`: probabilities sum to 1 and display percents to 100; the reference values in §4.3 (±1 point); equal teams → home win, slight favourite; `d ≈ 0` → "Close – draw likely"; a stronger home team → home win; with H = 0, swapping the teams mirrors the result; missing form never lowers strength below table-only strength; `played = 0` does not divide by zero; invalid `strForm` is rejected; reasons quote only input numbers. Recency: WWWLL scores 2.03 and LLWWW scores 1.58 (newest first, ±0.01); unordered form or `recencyWeighting = false` gives 1.8 for both; with weighting, the rising team gets a higher home-win chance than the falling team, all else equal; streak lines appear for runs ≥ 2 and do not change the probabilities; the order note appears for unordered source B. | ✅ | 2026-11-01 |
 
-TASK-019 outcome: `standingsFormOrder` stays `FormOrder.unknown` for v1.
-No Premium key (full season events) was available in this environment, so
-the `strForm` letter order could not be verified against derived recent
-form. Per RISK-006 the safe default is kept: `strForm` counts only as an
-unordered source (plain counts), and the pinned test in
-`test/features/predictions/team_form_test.dart` keeps the value in place.
-Revisit when Premium evidence exists.
+TASK-019 outcome (v1): `standingsFormOrder` stayed `FormOrder.unknown`,
+because no Premium key was available.
+
+TASK-019 outcome (2026-11-03, plan v1.4): **`newestFirst`**. With a Premium
+key, `strForm` (5 letters for every team) was compared with the derived last
+5 results from the season events:
+
+| Table | Teams | Newest first | Oldest first | Same both ways | Neither |
+|-------|-------|--------------|--------------|----------------|---------|
+| EPL 2025-26 (finished) | 20 | 15 | 0 | 5 | 0 |
+| EPL 2026-27 (in progress) | 20 | 19 | 0 | 1 | 0 |
+| La Liga 2025-26 (finished) | 20 | 18 | 0 | 2 | 0 |
+| La Liga 2026-27 (in progress) | 20 | 16 | 0 | 3 | 1 |
+| Bundesliga 2026-27 (in progress) | 18 | 17 | 0 | 1 | 0 |
+| Allsvenskan 2026 | 16 | 14 | 0 | 2 | 0 |
+
+The one "neither" row had 10 games played in the table and 11 finished
+season events: the table was one match behind, and the letters matched
+the newest-first reading up to that match. This also shows that the season
+events can be fresher than the table. Not verified: what `strForm` holds in
+the first rounds of a season (it may include last season). With a Premium
+key this hardly matters, because source A takes over after one result. The
+pinned test in `test/features/predictions/team_form_test.dart` now expects
+`newestFirst`.
 
 ### Phase 2 – Data and provider
 
@@ -610,9 +698,9 @@ availability attempt and zero generate calls.
   **Dropped from v1**: the sheet shows no table-as-of line, so no entry time
   is returned. Revisit if the age of the table needs to be visible.
 - **RISK-006**: A wrong `standingsFormOrder` reverses the form curve, so a
-  falling team looks like a rising one. Mitigated by TASK-019 (evidence
-  before setting the constant), a pinned test, and `unknown` as the safe
-  default.
+  falling team looks like a rising one. Mitigated by TASK-019 (`newestFirst`,
+  backed by evidence from 114 teams), a pinned test, and source B being only
+  a fallback with a Premium key.
 - **RISK-005**: Cup or cross-league fixtures in the list: a team is not found
   → "Not enough data" (REQ-007).
 
@@ -621,8 +709,8 @@ availability attempt and zero generate calls.
 1. Show percentages in v1? **Default: yes**, with the "estimate" label and
    disclaimer.
 2. Is `strForm` enough for "last five" on the free key? **Default: yes.** It
-   is recency-weighted once TASK-019 confirms the order, and counts only
-   until then. The source is shown in the reasons.
+   is recency-weighted (TASK-019 confirmed newest first). The app now
+   assumes a Premium key, where `strForm` is only a fallback.
 3. Recency weights `[1.0, 0.9, 0.8, 0.7, 0.6]`? **Default: yes.** Gentle on
    purpose. Tune with TASK-024.
 4. Draw verdict threshold `|pHome − pAway| < 0.10`? **Default: yes.** Tune it

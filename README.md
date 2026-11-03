@@ -60,8 +60,9 @@ richer team data.
   A slight favourite gets `1X` or `X2`, and a match that is too close to
   call gets `1X2`.
 - The prediction is an estimate based on the league table (points per game,
-  goal difference) and home advantage. Recent form and streaks are shown for
-  context. It is not betting advice.
+  goal difference), home advantage and recent form. Recent form is measured
+  against the strength of each opponent: a loss to a top side counts less
+  than a loss to a bottom side. It is not betting advice.
 - With a free API key, recent form can be incomplete; the sheet says when
   data is missing instead of guessing.
 - A single tap on an upcoming match does not open it.

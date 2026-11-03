@@ -210,7 +210,7 @@ class _PredictionBody extends StatelessWidget {
           ),
         const SizedBox(height: 12),
         Text(
-          'Estimate based on the league table. Not betting advice.',
+          'Estimate based on the league table and recent form. Not betting advice.',
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.outline,
           ),

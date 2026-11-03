@@ -8,7 +8,12 @@ import 'prediction_result.dart';
 import 'team_form.dart';
 
 /// The form data picked for one team, per plan §4.1.
-typedef TeamFormData = ({List<String> form, bool ordered, FormSource source});
+typedef TeamFormData = ({
+  List<String> form,
+  bool ordered,
+  FormSource source,
+  List<FormMatch> matches,
+});
 
 /// Builds a [PredictionInput] from the data the app already loads and caches
 /// (REQ-008): the league table (6 h TTL) and the season events (30 min TTL).
@@ -87,6 +92,15 @@ class PredictionRepository {
       // TeamStanding has no group field, so the current single-table
       // behaviour is kept (plan §3).
       sameGroup: true,
+      // Every team's record, to rate the opponents in the recent form.
+      table: {
+        for (final row in table)
+          row.teamId: TeamRecord(
+            played: row.played,
+            points: row.points,
+            goalsDiff: row.goalsDiff,
+          ),
+      },
     );
   }
 
@@ -98,8 +112,14 @@ class PredictionRepository {
   }
 
   /// Picks the form source per plan §4.1: derived season-event form when it
-  /// has at least 3 results, otherwise `strForm`, otherwise no form at all
+  /// has at least one result, otherwise `strForm`, otherwise no form at all
   /// (REQ-006: missing data is never invented).
+  ///
+  /// The app assumes a Premium key, so the season events are complete and
+  /// even one derived result is the team's real latest result, with its
+  /// opponent (plan §4.10). The old threshold of 3 guarded against the free
+  /// key's ~15-event sample. `strForm` is now only a fallback for when the
+  /// season events have no result for the team.
   TeamFormData _formFor(
     int teamId,
     List<Fixture> events,
@@ -108,9 +128,15 @@ class PredictionRepository {
   ) {
     // Season-event form is always newest first with a known order (fixture
     // dates); only results strictly before kick-off count.
-    final derived = recentForm(teamId, events, before: kickoffUtc);
-    if (derived.length >= 3) {
-      return (form: derived, ordered: true, source: FormSource.seasonEvents);
+    final matches = recentMatches(teamId, events, before: kickoffUtc);
+    if (matches.isNotEmpty) {
+      final withContext = formMatchesFor(teamId, matches);
+      return (
+        form: [for (final m in withContext) m.result],
+        ordered: true,
+        source: FormSource.seasonEvents,
+        matches: withContext,
+      );
     }
     final parsed = parseStandingForm(row.form);
     if (parsed != null) {
@@ -118,9 +144,17 @@ class PredictionRepository {
         form: parsed.results,
         ordered: parsed.ordered,
         source: FormSource.standingsForm,
+        // strForm has no opponents: form is compared with the season
+        // average instead (plan §4.10).
+        matches: const <FormMatch>[],
       );
     }
-    return (form: const <String>[], ordered: false, source: FormSource.none);
+    return (
+      form: const <String>[],
+      ordered: false,
+      source: FormSource.none,
+      matches: const <FormMatch>[],
+    );
   }
 
   TeamFactors _factors(TeamStanding row, TeamFormData form) {
@@ -134,6 +168,7 @@ class PredictionRepository {
       form: form.form,
       formOrdered: form.ordered,
       formSource: form.source,
+      formMatches: form.matches,
     );
   }
 }

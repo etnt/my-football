@@ -1,21 +1,23 @@
 import '../../models/fixture.dart';
+import 'prediction_input.dart';
 
 /// How the letters in `TeamStanding.form` (`strForm`) are ordered.
 enum FormOrder { newestFirst, oldestFirst, unknown }
 
 /// The order of the `strForm` letters for TheSportsDB standings.
 ///
-/// TASK-019: set this to [FormOrder.newestFirst] or [FormOrder.oldestFirst]
-/// only after comparing `strForm` with derived recent form for at least 5
-/// teams in 2 leagues on a Premium key, and record the evidence in
-/// `plan/feature-match-predictions-1.md`. While it is [FormOrder.unknown]
-/// the letter order is not used: `parseStandingForm` reports the results as
-/// unordered and the calculator falls back to plain counts.
+/// TASK-019 (2026-11-03): **newest first**. Evidence on a Premium key:
+/// `strForm` compared with the derived last 5 results for 114 teams in 6
+/// tables (EPL and La Liga 2025-26 and 2026-27, Bundesliga 2026-27,
+/// Allsvenskan 2026): 99 match newest first, 0 oldest first, 13 read the
+/// same both ways, and 1 matches neither because its table row was one
+/// match behind the season events. Details in
+/// `plan/feature-match-predictions-1.md` (TASK-019).
 ///
 /// The test in `test/features/predictions/team_form_test.dart` pins this
-/// value on purpose: if TASK-019 changes it, that test (and the plan note)
-/// must be updated with the evidence in the same change.
-const FormOrder standingsFormOrder = FormOrder.unknown;
+/// value on purpose: a wrong order silently reverses the form curve
+/// (RISK-006), so any change needs new evidence in the same change.
+const FormOrder standingsFormOrder = FormOrder.newestFirst;
 
 /// The last [limit] results for [teamId] as `W`/`D`/`L`, **newest first**,
 /// from finished fixtures with a score in [events].
@@ -25,6 +27,20 @@ const FormOrder standingsFormOrder = FormOrder.unknown;
 /// leak into a pre-match calculation. Fixtures with the same kick-off time
 /// are ordered by fixture id, newest first.
 List<String> recentForm(
+  int teamId,
+  Iterable<Fixture> events, {
+  DateTime? before,
+  int limit = 5,
+}) => [
+  for (final f in recentMatches(teamId, events, before: before, limit: limit))
+    f.resultFor(teamId)!,
+];
+
+/// The last [limit] finished, scored fixtures for [teamId], **newest
+/// first**, with the same cutoff and ordering rules as [recentForm]. Used
+/// where the opponent and venue of each result matter (opponent-adjusted
+/// form, plan §4.10).
+List<Fixture> recentMatches(
   int teamId,
   Iterable<Fixture> events, {
   DateTime? before,
@@ -41,8 +57,19 @@ List<String> recentForm(
         final byDate = b.dateUtc.compareTo(a.dateUtc);
         return byDate != 0 ? byDate : b.id.compareTo(a.id);
       });
-  return [for (final f in played.take(limit)) f.resultFor(teamId)!];
+  return played.take(limit).toList();
 }
+
+/// The [FormMatch] list for [teamId] from [matches] (newest first, as
+/// returned by [recentMatches]).
+List<FormMatch> formMatchesFor(int teamId, List<Fixture> matches) => [
+  for (final f in matches)
+    FormMatch(
+      result: f.resultFor(teamId)!,
+      atHome: f.homeId == teamId,
+      opponentId: f.homeId == teamId ? f.awayId : f.homeId,
+    ),
+];
 
 /// Parses a `strForm` value (`TeamStanding.form`) into W/D/L results.
 ///

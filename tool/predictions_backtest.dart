@@ -3,7 +3,7 @@
 // Rebuilds the league table and recent form at each fixture's kickoff from
 // the cached season events, predicts every finished match with the formula,
 // and reports argmax accuracy and Brier score against the in-sample baseline,
-// once with the shipped formula and once with the original v1 constants.
+// with the shipped formula, the table-only v1.1 and the original v1.
 //
 // Key safety: the API key comes from the environment only (SPORTSDB_API_KEY).
 // The tool never reads a key file, never prints the key, any request URL or
@@ -108,8 +108,9 @@ Future<void> main(List<String> arguments) async {
     exit(0);
   }
 
-  final (:current, :v1) = compareBacktests(events);
+  final (:current, :tableOnly, :v1) = compareBacktests(events);
   stdout.writeln(formatReport(current));
+  stdout.writeln(formatReport(tableOnly));
   stdout.writeln(formatReport(v1));
 
   if (current.n == 0) {
@@ -119,16 +120,13 @@ Future<void> main(List<String> arguments) async {
 
   // Both metrics come from the same scored fixtures, so the comparison is
   // like-for-like. One season is noisy: judge tuning on several (plan §4.8).
-  final cur = current.formulaVersion;
-  final old = v1.formulaVersion;
+  final reports = [current, tableOnly, v1];
+  String row(String label, String Function(BacktestReport) value) =>
+      '  $label ${reports.map((r) => '${r.formulaVersion} ${value(r)}').join(' | ')}';
   stdout.writeln('comparison (same ${current.n} scored fixtures):');
+  stdout.writeln(row('accuracy:', (r) => r.accuracy.toStringAsFixed(3)));
   stdout.writeln(
-    '  accuracy: $cur ${current.accuracy.toStringAsFixed(3)} '
-    'vs $old ${v1.accuracy.toStringAsFixed(3)}',
-  );
-  stdout.writeln(
-    '  Brier:    $cur ${current.brier.toStringAsFixed(4)} '
-    'vs $old ${v1.brier.toStringAsFixed(4)} (lower is better)',
+    '${row('Brier:   ', (r) => r.brier.toStringAsFixed(4))} (lower is better)',
   );
   if (current.n < minMeaningfulSample) {
     stdout.writeln(

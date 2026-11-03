@@ -11,23 +11,39 @@ const List<double> defaultRecencyWeights = [1.0, 0.9, 0.8, 0.7, 0.6];
 /// Constants for the prediction formula (plan §4). Versioned so they can be
 /// tuned and back-tested (TASK-024).
 ///
-/// The defaults are formula v1.1 (plan §4.8): the logistic scale, home
-/// advantage and draw centre were fitted on 12 league seasons and checked on
-/// 12 later ones. Recent form showed no predictive value on top of the table,
-/// so [formWeight] is 0 and form is shown for context only.
+/// The defaults are formula v1.2 (plan §4.10): the v1.1 constants (§4.8,
+/// fitted on 12 league seasons and checked on 12 later ones) plus a small,
+/// opponent-adjusted form term. The back-test found no accuracy gain from
+/// form, so its weight is kept small enough to cost none either.
 class PredictionWeights {
   const PredictionWeights({
     this.shrinkageK = 3,
     this.goalDiffWeight = 0.25,
-    this.formWeight = 0.0,
+    this.formWeight = 0.10,
+    this.opponentAdjustedForm = true,
     this.recencyWeights = defaultRecencyWeights,
     this.recencyWeighting = true,
     this.homeAdvantage = 0.40,
     this.logisticScale = 0.80,
     this.drawCenter = 0.57,
     this.leagueAvgPpgFallback = 1.37,
-    this.version = 'v1.1',
+    this.version = 'v1.2',
   });
+
+  /// Formula v1.1 (plan §4.8): the table only, form is context only. Kept so
+  /// the back-test can compare against it.
+  const PredictionWeights.v1_1()
+    : shrinkageK = 3,
+      goalDiffWeight = 0.25,
+      formWeight = 0,
+      opponentAdjustedForm = false,
+      recencyWeights = defaultRecencyWeights,
+      recencyWeighting = true,
+      homeAdvantage = 0.40,
+      logisticScale = 0.80,
+      drawCenter = 0.57,
+      leagueAvgPpgFallback = 1.37,
+      version = 'v1.1';
 
   /// The original v1 starting constants (plan §4.1–4.3), kept so the
   /// back-test can compare against them.
@@ -35,6 +51,7 @@ class PredictionWeights {
     : shrinkageK = 3,
       goalDiffWeight = 0.25,
       formWeight = 0.35,
+      opponentAdjustedForm = false,
       recencyWeights = defaultRecencyWeights,
       homeAdvantage = 0.20,
       logisticScale = 1.6,
@@ -52,6 +69,13 @@ class PredictionWeights {
 
   /// Whether recent form changes the estimate.
   bool get formAffectsEstimate => formWeight != 0;
+
+  /// When true, each recent result is compared with the points expected
+  /// against that opponent at that venue (plan §4.10), so a loss to a much
+  /// stronger side counts less than a loss to a much weaker one. Needs
+  /// [TeamFactors.formMatches] and [PredictionInput.table]; without them the
+  /// form is compared with the team's own season average (v1 behaviour).
+  final bool opponentAdjustedForm;
   final List<double> recencyWeights;
 
   /// Switch for the recency weighting so the back-test can compare weighted
@@ -130,8 +154,8 @@ class PredictionCalculator {
         ? input.leagueAvgPpg
         : weights.leagueAvgPpgFallback;
 
-    final home = _factors(input.home, league, isHomeSide: true);
-    final away = _factors(input.away, league, isHomeSide: false);
+    final home = _factors(input.home, league, input.table, isHomeSide: true);
+    final away = _factors(input.away, league, input.table, isHomeSide: false);
 
     final d = home.strength - away.strength + weights.homeAdvantage;
 
@@ -182,9 +206,70 @@ class PredictionCalculator {
     );
   }
 
+  /// Table strength: shrunk ppg plus weighted, shrunk goal difference per
+  /// game (plan §4.1–4.2).
+  double _tableStrength(int points, int played, int goalsDiff, double league) {
+    final k = weights.shrinkageK;
+    final ppg = (points + k * league) / (played + k);
+    return ppg + weights.goalDiffWeight * goalsDiff / (played + k);
+  }
+
+  /// Opponent-adjusted form (plan §4.10): for each recent result, the points
+  /// taken minus the points expected against that opponent at that venue,
+  /// from both table strengths and the home advantage. Recency-weighted and
+  /// shrunk by `n / (n + 2)` like the plain form. Null when the opponents
+  /// are unknown or any of them is missing from [table]: a partial list
+  /// would quote points over a different set of matches than the form.
+  ({double residual, double expected})? _opponentAdjusted(
+    TeamFactors team,
+    double ownStrength,
+    double league,
+    Map<int, TeamRecord> table,
+  ) {
+    final matches = team.formMatches;
+    if (!weights.opponentAdjustedForm || matches.isEmpty) return null;
+    final a = weights.logisticScale;
+    final c = weights.drawCenter;
+    final useRecency = team.formOrdered && weights.recencyWeighting;
+    var weighted = 0.0;
+    var weightSum = 0.0;
+    var expectedTotal = 0.0;
+    for (var i = 0; i < matches.length; i++) {
+      final m = matches[i];
+      final opp = table[m.opponentId];
+      if (opp == null) return null;
+      final oppStrength = _tableStrength(
+        opp.points,
+        opp.played,
+        opp.goalsDiff,
+        league,
+      );
+      final dd =
+          ownStrength -
+          oppStrength +
+          (m.atHome ? weights.homeAdvantage : -weights.homeAdvantage);
+      final pWin = _sigmoid(a * dd - c);
+      final pLoss = _sigmoid(-a * dd - c);
+      final pDraw = math.max(0.0, 1 - pWin - pLoss);
+      final expected = 3 * pWin + pDraw;
+      expectedTotal += expected;
+      final w = useRecency && i < weights.recencyWeights.length
+          ? weights.recencyWeights[i]
+          : 1.0;
+      weighted += w * (_points(m.result) - expected);
+      weightSum += w;
+    }
+    final n = matches.length;
+    return (
+      residual: weighted / weightSum * n / (n + 2),
+      expected: expectedTotal,
+    );
+  }
+
   _TeamMath _factors(
     TeamFactors team,
-    double league, {
+    double league,
+    Map<int, TeamRecord> table, {
     required bool isHomeSide,
   }) {
     final k = weights.shrinkageK;
@@ -207,8 +292,13 @@ class PredictionCalculator {
     final formAdj = hasForm
         ? (team.form.length * fPpg! + 2 * ppg) / (team.form.length + 2)
         : ppg;
-    final formTerm = hasForm ? weights.formWeight * (formAdj - ppg) : 0.0;
     final tablePart = ppg + weights.goalDiffWeight * gdpg;
+    final adjusted = hasForm
+        ? _opponentAdjusted(team, tablePart, league, table)
+        : null;
+    final formTerm = !hasForm
+        ? 0.0
+        : weights.formWeight * (adjusted?.residual ?? (formAdj - ppg));
 
     return _TeamMath(
       factors: team,
@@ -220,6 +310,7 @@ class PredictionCalculator {
       strength: tablePart + formTerm,
       tablePart: tablePart,
       formTerm: formTerm,
+      formExpected: adjusted?.expected,
     );
   }
 
@@ -269,6 +360,10 @@ class PredictionCalculator {
       // it quotes raw points only, so `favours` follows the raw points.
       final context = _formContextReason(home, away);
       if (context != null) reasons.add(_Weighted(context, 0));
+    } else if (home.isOpponentAdjusted || away.isOpponentAdjusted) {
+      reasons.add(
+        _Weighted(_adjustedFormReason(home, away, formGap), formGap.abs()),
+      );
     } else if (home.hasForm && away.hasForm) {
       final favours = formGap > 0
           ? PredictionFavour.home
@@ -446,6 +541,53 @@ class PredictionCalculator {
     return home.factors.name;
   }
 
+  /// The form line when at least one side's form is opponent-adjusted
+  /// (plan §4.10). Each side quotes its points and, when adjusted, the
+  /// points expected against those opponents, so a side can be favoured
+  /// with fewer raw points without the text contradicting itself.
+  PredictionReason _adjustedFormReason(
+    _TeamMath home,
+    _TeamMath away,
+    double formGap,
+  ) {
+    String part(_TeamMath side) {
+      final points = _totalPoints(side.factors.form);
+      final max = 3 * side.factors.form.length;
+      final expected = side.formExpected;
+      return expected != null
+          ? '${side.factors.name} took $points of $max points where '
+                '${expected.toStringAsFixed(1)} were expected'
+          : '${side.factors.name} took $points of $max points (opponents '
+                'unknown, compared with their season average)';
+    }
+
+    final sides = [if (home.hasForm) home, if (away.hasForm) away];
+    final weighted =
+        weights.recencyWeighting && sides.every((s) => s.factors.formOrdered);
+    final clause = weighted ? ', with recent matches counting more' : '';
+    final favours = formGap > 0
+        ? PredictionFavour.home
+        : formGap < 0
+        ? PredictionFavour.away
+        : PredictionFavour.none;
+    double round1(double v) => double.parse(v.toStringAsFixed(1));
+    return PredictionReason(
+      factor: 'form',
+      favours: favours,
+      text:
+          'Recent form against the opponents faced: '
+          '${sides.map(part).join('; ')}$clause.',
+      numbers: {
+        'homeFormPoints': _totalPoints(home.factors.form),
+        'awayFormPoints': _totalPoints(away.factors.form),
+        if (home.formExpected != null)
+          'homeFormExpected': round1(home.formExpected!),
+        if (away.formExpected != null)
+          'awayFormExpected': round1(away.formExpected!),
+      },
+    );
+  }
+
   /// The context-only form line (form weight 0). Null when neither team has
   /// form; a single missing side is already covered by the missing notes.
   PredictionReason? _formContextReason(_TeamMath home, _TeamMath away) {
@@ -541,6 +683,7 @@ class _TeamMath {
     required this.strength,
     required this.tablePart,
     required this.formTerm,
+    this.formExpected,
   });
 
   final TeamFactors factors;
@@ -553,7 +696,13 @@ class _TeamMath {
   final double tablePart;
   final double formTerm;
 
+  /// Points expected over the recent matches against those opponents;
+  /// null when the form is not opponent-adjusted.
+  final double? formExpected;
+
   bool get hasForm => factors.form.isNotEmpty;
+
+  bool get isOpponentAdjusted => formExpected != null;
 
   bool get usesUnorderedStandingForm =>
       factors.formSource == FormSource.standingsForm && !factors.formOrdered;

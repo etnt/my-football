@@ -30,11 +30,12 @@ Fixture _event({
 
 void main() {
   group('standingsFormOrder', () {
-    test('stays unknown until TASK-019 confirms the strForm letter order', () {
-      // Pinned on purpose: TASK-019 must record evidence in the plan before
-      // this value changes, and this test must be updated in the same
-      // change. A wrong order silently reverses the form curve (RISK-006).
-      expect(standingsFormOrder, FormOrder.unknown);
+    test('is newest first, as confirmed by TASK-019', () {
+      // Pinned on purpose: TASK-019 recorded the Premium evidence in the
+      // plan (99 of 100 unambiguous teams newest first, none oldest first).
+      // Any change needs new evidence in the same change: a wrong order
+      // silently reverses the form curve (RISK-006).
+      expect(standingsFormOrder, FormOrder.newestFirst);
     });
   });
 
@@ -238,11 +239,11 @@ void main() {
       expect(parseStandingForm('WWWWWDL'), isNull); // 7 letters
     });
 
-    test('reports unordered while standingsFormOrder is unknown', () {
+    test('reports ordered, newest first, as the letters appear', () {
       final parsed = parseStandingForm('WDL');
       expect(parsed, isNotNull);
-      expect(parsed!.ordered, isFalse);
-      expect(parsed.results, ['W', 'D', 'L']); // returned as they appear
+      expect(parsed!.ordered, isTrue);
+      expect(parsed.results, ['W', 'D', 'L']); // already newest first
     });
   });
 

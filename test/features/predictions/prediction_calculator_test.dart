@@ -18,6 +18,7 @@ TeamFactors _team({
   List<String> form = const [],
   bool formOrdered = false,
   FormSource formSource = FormSource.none,
+  List<FormMatch> formMatches = const [],
 }) {
   return TeamFactors(
     teamId: id,
@@ -29,6 +30,7 @@ TeamFactors _team({
     form: form,
     formOrdered: formOrdered,
     formSource: formSource,
+    formMatches: formMatches,
   );
 }
 
@@ -52,12 +54,14 @@ PredictionInput _input({
   required TeamFactors home,
   required TeamFactors away,
   double leagueAvgPpg = 1.0,
+  Map<int, TeamRecord> table = const {},
 }) {
   return PredictionInput(
     fixture: _fixture(),
     home: home,
     away: away,
     leagueAvgPpg: leagueAvgPpg,
+    table: table,
   );
 }
 
@@ -65,10 +69,18 @@ PredictionResult _run(
   TeamFactors home,
   TeamFactors away, {
   double leagueAvgPpg = 1.0,
+  Map<int, TeamRecord> table = const {},
 }) {
   return const PredictionCalculator().calculate(
-    _input(home: home, away: away, leagueAvgPpg: leagueAvgPpg),
+    _input(home: home, away: away, leagueAvgPpg: leagueAvgPpg, table: table),
   );
+}
+
+/// Formula v1.1: the table only, form is context only.
+PredictionResult _runV1_1(TeamFactors home, TeamFactors away) {
+  return const PredictionCalculator(
+    weights: PredictionWeights.v1_1(),
+  ).calculate(_input(home: home, away: away));
 }
 
 /// Runs the original v1 constants, where recent form changes the estimate.
@@ -258,13 +270,10 @@ void main() {
     });
 
     test('codes and descriptions', () {
-      expect({for (final t in MatchTip.values) t.code}, {
-        '1',
-        '1X',
-        '1X2',
-        'X2',
-        '2',
-      });
+      expect(
+        {for (final t in MatchTip.values) t.code},
+        {'1', '1X', '1X2', 'X2', '2'},
+      );
       expect(MatchTip.homeOrDraw.description, 'Home win or draw');
       expect(MatchTip.open.description, 'Any result');
     });
@@ -273,10 +282,7 @@ void main() {
       // The draw is never the single most likely outcome, so no input can
       // produce an X-only tip: sweep the strength difference.
       for (var home = 0.5; home <= 3.0; home += 0.1) {
-        final r = _run(
-          _team(ppg: home),
-          _team(id: 2, name: 'Away', ppg: 1.5),
-        );
+        final r = _run(_team(ppg: home), _team(id: 2, name: 'Away', ppg: 1.5));
         expect(r.tip.code, isNot('X'));
         expect(r.pDraw, lessThan(r.pHome > r.pAway ? r.pHome : r.pAway));
       }
@@ -737,7 +743,12 @@ void main() {
 
     test('carries the formula version', () {
       final r = _run(_team(ppg: 1.5), _team(id: 2, name: 'Away', ppg: 1.5));
-      expect(r.formulaVersion, 'v1.1');
+      expect(r.formulaVersion, 'v1.2');
+      final v11 = _runV1_1(
+        _team(ppg: 1.5),
+        _team(id: 2, name: 'Away', ppg: 1.5),
+      );
+      expect(v11.formulaVersion, 'v1.1');
       final v1 = _runV1(_team(ppg: 1.5), _team(id: 2, name: 'Away', ppg: 1.5));
       expect(v1.formulaVersion, 'v1');
     });
@@ -759,8 +770,11 @@ void main() {
     );
 
     test('form never changes the probabilities', () {
-      final none = _run(_team(ppg: 1.5), _team(id: 2, name: 'Away', ppg: 1.5));
-      final hot = _run(
+      final none = _runV1_1(
+        _team(ppg: 1.5),
+        _team(id: 2, name: 'Away', ppg: 1.5),
+      );
+      final hot = _runV1_1(
         withForm(1, 'Home', const ['W', 'W', 'W', 'W', 'W']),
         withForm(2, 'Away', const ['L', 'L', 'L', 'L', 'L']),
       );
@@ -770,7 +784,7 @@ void main() {
     });
 
     test('the form line says it is context only and quotes raw points', () {
-      final r = _run(
+      final r = _runV1_1(
         withForm(1, 'Arsenal', const ['W', 'W', 'W', 'L', 'L']),
         withForm(2, 'Fulham', const ['L', 'L', 'D', 'D', 'D']),
       );
@@ -788,7 +802,7 @@ void main() {
 
     test('favours compares points per match, not totals', () {
       // Home: 9 of 15 (1.8 per match). Away: 7 of 9 (2.33 per match).
-      final r = _run(
+      final r = _runV1_1(
         withForm(1, 'Home', const ['W', 'W', 'W', 'L', 'L']),
         withForm(2, 'Away', const ['W', 'W', 'D']),
       );
@@ -797,7 +811,7 @@ void main() {
     });
 
     test('one side without form: the line names only the side with form', () {
-      final r = _run(
+      final r = _runV1_1(
         withForm(1, 'Home', const ['W', 'D', 'L']),
         _team(id: 2, name: 'Away', ppg: 1.5),
       );
@@ -812,12 +826,12 @@ void main() {
     });
 
     test('no form line when neither team has form', () {
-      final r = _run(_team(ppg: 1.5), _team(id: 2, name: 'Away', ppg: 1.5));
+      final r = _runV1_1(_team(ppg: 1.5), _team(id: 2, name: 'Away', ppg: 1.5));
       expect(r.reasons.any((r) => r.factor == 'form'), isFalse);
     });
 
     test('no order note: the order cannot matter when form is unused', () {
-      final r = _run(
+      final r = _runV1_1(
         withForm(1, 'Home', const ['W', 'W', 'L'], ordered: false),
         withForm(2, 'Away', const ['D', 'W', 'L'], ordered: false),
       );
@@ -825,7 +839,7 @@ void main() {
     });
 
     test('streak lines are still shown', () {
-      final r = _run(
+      final r = _runV1_1(
         withForm(1, 'Home', const ['W', 'W', 'W', 'L', 'L']),
         _team(id: 2, name: 'Away', ppg: 1.5),
       );
@@ -836,6 +850,173 @@ void main() {
         ),
         isTrue,
       );
+    });
+  });
+
+  group('v1.2: opponent-adjusted form', () {
+    // leagueAvgPpg = 1.0, k = 3. Strong: (21 + 3) / 10 + 0.25 · 15 / 10 =
+    // 2.775. Weak: 0.3 − 0.375 = −0.075. Mid: (7 + 3) / 10 = 1.0.
+    const strong = 10, weak = 11, mid = 12;
+    const table = {
+      strong: TeamRecord(played: 7, points: 21, goalsDiff: 15),
+      weak: TeamRecord(played: 7, points: 0, goalsDiff: -15),
+      mid: TeamRecord(played: 7, points: 7, goalsDiff: 0),
+    };
+
+    TeamFactors team(
+      int id,
+      String name,
+      List<(String, int)> results, {
+      bool atHome = true,
+    }) => _team(
+      id: id,
+      name: name,
+      ppg: 1.5,
+      form: [for (final r in results) r.$1],
+      formOrdered: true,
+      formSource: FormSource.seasonEvents,
+      formMatches: [
+        for (final r in results)
+          FormMatch(result: r.$1, atHome: atHome, opponentId: r.$2),
+      ],
+    );
+
+    final opponent = _team(id: 2, name: 'Away', ppg: 1.5);
+
+    test('a loss to a strong side costs less than a loss to a weak side', () {
+      final toStrong = _run(
+        team(1, 'Home', [('L', strong), ('L', strong), ('L', strong)]),
+        opponent,
+        table: table,
+      );
+      final toWeak = _run(
+        team(1, 'Home', [('L', weak), ('L', weak), ('L', weak)]),
+        opponent,
+        table: table,
+      );
+      expect(toStrong.pHome, greaterThan(toWeak.pHome));
+    });
+
+    test('a win over a strong side counts more than one over a weak side', () {
+      final overStrong = _run(
+        team(1, 'Home', [('W', strong), ('W', strong), ('W', strong)]),
+        opponent,
+        table: table,
+      );
+      final overWeak = _run(
+        team(1, 'Home', [('W', weak), ('W', weak), ('W', weak)]),
+        opponent,
+        table: table,
+      );
+      expect(overStrong.pHome, greaterThan(overWeak.pHome));
+    });
+
+    test('the venue of each past match is taken into account', () {
+      // An away draw beats expectations by more than a home draw.
+      final awayDraws = _run(
+        team(1, 'Home', [('D', mid), ('D', mid), ('D', mid)], atHome: false),
+        opponent,
+        table: table,
+      );
+      final homeDraws = _run(
+        team(1, 'Home', [('D', mid), ('D', mid), ('D', mid)]),
+        opponent,
+        table: table,
+      );
+      expect(awayDraws.pHome, greaterThan(homeDraws.pHome));
+    });
+
+    test('the effect stays small (weight 0.10)', () {
+      final best = _run(
+        team(1, 'Home', [for (var i = 0; i < 5; i++) ('W', strong)]),
+        opponent,
+        table: table,
+      );
+      final worst = _run(
+        team(1, 'Home', [for (var i = 0; i < 5; i++) ('L', weak)]),
+        opponent,
+        table: table,
+      );
+      final none = _run(_team(ppg: 1.5), opponent);
+      expect(best.pHome, greaterThan(none.pHome));
+      expect(worst.pHome, lessThan(none.pHome));
+      expect(best.pHome - worst.pHome, lessThan(0.12));
+    });
+
+    test('the reason quotes points and expected points per side', () {
+      final r = _run(
+        team(1, 'Arsenal', [('L', strong), ('L', strong), ('L', strong)]),
+        team(2, 'Fulham', [('L', weak), ('L', weak), ('L', weak)]),
+        table: table,
+      );
+      final form = r.reasons.firstWhere((r) => r.factor == 'form');
+      final hExp = form.numbers['homeFormExpected']!;
+      final aExp = form.numbers['awayFormExpected']!;
+      expect(hExp, lessThan(aExp));
+      expect(
+        form.text,
+        'Recent form against the opponents faced: Arsenal took 0 of 9 points '
+        'where ${hExp.toStringAsFixed(1)} were expected; Fulham took 0 of 9 '
+        'points where ${aExp.toStringAsFixed(1)} were expected, with recent '
+        'matches counting more.',
+      );
+      // Same raw points, but Fulham lost to weak sides: Arsenal favoured.
+      expect(form.favours, PredictionFavour.home);
+    });
+
+    test('without opponents the form is compared with the season average', () {
+      // strForm-style form: no formMatches, so the v1 comparison is used.
+      final r = _run(
+        _team(
+          ppg: 1.5,
+          form: const ['W', 'W', 'W'],
+          formOrdered: true,
+          formSource: FormSource.seasonEvents,
+        ),
+        opponent,
+        table: table,
+      );
+      final none = _run(_team(ppg: 1.5), opponent);
+      expect(r.pHome, greaterThan(none.pHome));
+      final form = r.reasons.firstWhere((r) => r.factor == 'form');
+      expect(form.text, isNot(contains('expected')));
+    });
+
+    test('an opponent missing from the table falls back to the average', () {
+      final r = _run(
+        team(1, 'Home', [('W', strong), ('W', 999)]),
+        team(2, 'Away', [('W', weak), ('W', weak)]),
+        table: table,
+      );
+      final form = r.reasons.firstWhere((r) => r.factor == 'form');
+      expect(
+        form.text,
+        contains(
+          'Home took 6 of 6 points (opponents unknown, compared with their '
+          'season average)',
+        ),
+      );
+      expect(form.text, contains('Away took 6 of 6 points where'));
+      expect(form.numbers.containsKey('homeFormExpected'), isFalse);
+      expect(form.numbers.containsKey('awayFormExpected'), isTrue);
+    });
+
+    test('one side without form: the line names only the side with form', () {
+      final r = _run(
+        team(1, 'Home', [('W', mid), ('D', mid), ('L', mid)]),
+        opponent,
+        table: table,
+      );
+      final form = r.reasons.firstWhere((r) => r.factor == 'form');
+      expect(
+        form.text,
+        startsWith(
+          'Recent form against the opponents faced: '
+          'Home took 4 of 9 points where ',
+        ),
+      );
+      expect(form.text, isNot(contains('Away')));
+      expect(r.missingNotes, contains('Recent form is missing for Away.'));
     });
   });
 }

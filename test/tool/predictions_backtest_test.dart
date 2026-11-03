@@ -285,7 +285,7 @@ void main() {
       expect(report.baselineAwayRate, 1);
       expect(report.baselineAccuracy, 1);
       expect(report.baselineBrier, 0);
-      expect(report.formulaVersion, 'v1.1');
+      expect(report.formulaVersion, 'v1.2');
     });
 
     test('an empty season gives n = 0 and no NaN', () {
@@ -324,20 +324,47 @@ void main() {
 
     test('form is context only in v1.1: the weighting changes nothing', () {
       final events = recencySeason();
-      final on = runBacktest(events: events);
+      final on = runBacktest(
+        events: events,
+        weights: const PredictionWeights.v1_1(),
+      );
       final off = runBacktest(
         events: events,
-        weights: const PredictionWeights(recencyWeighting: false),
+        weights: const PredictionWeights(
+          formWeight: 0,
+          recencyWeighting: false,
+        ),
       );
       expect(on.formAffectsEstimate, isFalse);
       expect(on.brier, off.brier);
     });
 
-    test('compareBacktests runs the shipped formula against v1', () {
-      final (:current, :v1) = compareBacktests(recencySeason());
-      expect(current.formulaVersion, 'v1.1');
+    test('compareBacktests runs the shipped formula, v1.1 and v1', () {
+      final (:current, :tableOnly, :v1) = compareBacktests(recencySeason());
+      expect(current.formulaVersion, 'v1.2');
+      expect(tableOnly.formulaVersion, 'v1.1');
       expect(v1.formulaVersion, 'v1');
       expect(current.n, v1.n);
+      expect(tableOnly.n, v1.n);
+    });
+
+    test('buildInput carries opponents and the table for adjusted form', () {
+      final events = recencySeason();
+      final last = events.last;
+      final input = buildInput(
+        last,
+        events,
+        buildTable(events, before: last.dateUtc),
+      )!;
+      expect(input.home.formMatches, hasLength(input.home.form.length));
+      for (final m in input.home.formMatches) {
+        expect(input.table.containsKey(m.opponentId), isTrue);
+        expect(m.opponentId, isNot(input.home.teamId));
+      }
+      expect(
+        [for (final m in input.home.formMatches) m.result],
+        input.home.form,
+      );
     });
 
     test('the run is deterministic', () {
@@ -365,7 +392,10 @@ void main() {
     test('a full report carries counts, metrics, baseline and the warning',
         () {
       final text = formatReport(
-        runBacktest(events: simpleSeason()),
+        runBacktest(
+          events: simpleSeason(),
+          weights: const PredictionWeights.v1_1(),
+        ),
       );
       expect(text, contains('formula v1.1, form is context only'));
       expect(text.contains('recencyWeighting'), isFalse);

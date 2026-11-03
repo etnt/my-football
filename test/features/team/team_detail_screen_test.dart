@@ -246,7 +246,7 @@ void main() {
 
     expect(find.text('Why this estimate?'), findsOneWidget);
     expect(
-      find.text('Estimate based on the league table. Not betting advice.'),
+      find.text('Estimate based on the league table and recent form. Not betting advice.'),
       findsOneWidget,
     );
   });
