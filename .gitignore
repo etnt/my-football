@@ -26,3 +26,12 @@ assets/icon/marks.mvg
 
 # OS
 .DS_Store
+
+# Python venv and caches for tools/
+tools/.venv/
+__pycache__/
+.pytest_cache/
+
+# Generated Stryktipset system files (tools/stryktipset/reduce_system.py)
+/stryktipset_*.txt
+/europatipset_*.txt
