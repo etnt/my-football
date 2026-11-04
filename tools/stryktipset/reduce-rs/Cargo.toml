@@ -1,0 +1,25 @@
+[package]
+name = "reduce-rs"
+version = "0.1.0"
+edition = "2021"
+description = "Fast Rust port of tools/stryktipset/reduce_system.py (reduced Stryktipset systems)"
+
+[lib]
+name = "reduce_rs"
+
+[[bin]]
+name = "reduce-rs"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+rand = "0.9"
+rand_pcg = "0.9"
+rayon = "1"
+
+[dev-dependencies]
+assert_cmd = "2"
+predicates = "3"
+
+[profile.release]
+lto = true
