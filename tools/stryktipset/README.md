@@ -128,6 +128,41 @@ tools/.venv/bin/python tools/stryktipset/reduce_system.py \
 The report also shows a lower bound: the full system size divided by the
 number of outcomes that one row covers. No system can have fewer rows.
 
+## Rust version
+
+`reduce-rs` is a faster port of `reduce_system.py`. It gives the same output
+format and the same guarantee. It is much faster on large systems. It has no
+Python dependencies.
+
+Build it once. You need a Rust toolchain (`cargo`):
+
+```sh
+cd tools/stryktipset/reduce-rs
+cargo build --release
+```
+
+Run it from the repository root:
+
+```sh
+tools/stryktipset/reduce-rs/target/release/reduce-rs \
+    "1,x,x2,2,1,1x2,1,x,1,2,1x,1,1x" -g 12 -k 5
+```
+
+The options match the Python script (`-g`, `-k`, `-n`, `-a`, `-r`, `-i`,
+`--time-limit`, `--seed`, `-o`, `--crlf`, `--product`). Run `--help` for the full
+list.
+
+The Python and Rust programs use different random number generators. With the
+same `--seed`, greedy output can match exactly, but anneal output will not.
+Compare results by row count and guarantee, not by exact text.
+
+Tests:
+
+```sh
+cd tools/stryktipset/reduce-rs
+cargo test
+```
+
 ## Limits
 
 The script keeps a table of all near rows in memory. For very large systems
